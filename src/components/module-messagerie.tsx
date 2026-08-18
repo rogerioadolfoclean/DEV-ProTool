@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { ensureMessageAttachmentsTable } from "@/lib/message-attachments";
 import { envoyerMessageAvecPiecesJointes } from "@/lib/attachment-actions";
 import { Carte, CarteStat, EnTetePage, BadgeStatut, Tableau, CHAMP, BOUTON } from "@/components/ui";
 
@@ -8,6 +9,7 @@ export async function ModuleMessagerie({
   labelDe = "Expéditeur", deDefaut = "OmniComm",
 }: { rf: string; titre: string; sousTitre: string; canaux: string[]; canalDefaut: string;
   avecSujet?: boolean; placeholderVers: string; labelDe?: string; deDefaut?: string; }) {
+  await ensureMessageAttachmentsTable();
   const [stats, liste, routes] = await Promise.all([
     pool.query(`SELECT COUNT(*) AS total,
       COUNT(*) FILTER (WHERE statut = 'livre') AS livres,
