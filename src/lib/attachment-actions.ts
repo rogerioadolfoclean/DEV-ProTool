@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { pool } from "./db";
 import { exigerEcriture, audit } from "./auth";
 import { envoyerMessage } from "./actions";
+import { ensureMessageAttachmentsTable } from "./message-attachments";
 
 const MAX_FILES = 5;
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -28,7 +29,7 @@ export async function envoyerMessageAvecPiecesJointes(formData: FormData) {
     if (file.size > MAX_BYTES) throw new Error(`Fichier trop volumineux : ${file.name} (maximum 4 Mo).`);
   }
 
-  // Le moteur d'envoi existant reste responsable du routage, DND, passerelle et CDR.
+  await ensureMessageAttachmentsTable();
   await envoyerMessage(formData);
   if (!files.length) return;
 
@@ -37,7 +38,6 @@ export async function envoyerMessageAvecPiecesJointes(formData: FormData) {
   const vers = String(formData.get("vers") ?? "").trim();
   const contenu = String(formData.get("contenu") ?? "").trim();
 
-  // On retrouve le message créé par cette requête et on vérifie le tenant.
   const message = await pool.query(
     `SELECT id FROM messages
      WHERE tenant_id = $1 AND canal = $2 AND de = $3 AND vers = $4 AND contenu = $5
