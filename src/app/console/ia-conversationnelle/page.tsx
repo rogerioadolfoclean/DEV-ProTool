@@ -1,5 +1,6 @@
 import { pool } from "@/lib/db";
 import { Carte, CarteStat, EnTetePage } from "@/components/ui";
+import AiProviderSwitch from "@/components/ai-provider-switch";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export default async function PageIa() {
         sousTitre="Synthèse vocale, reconnaissance vocale et LLM pour la voix intelligente et l'automatisation (RF-008)"
         couleur="violet"
       />
+
+      <AiProviderSwitch />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <CarteStat libelle="Agents IA actifs" valeur={agents.rows.filter((a) => a.actif).length} couleur="violet" />
