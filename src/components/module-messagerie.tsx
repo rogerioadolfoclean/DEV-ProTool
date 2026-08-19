@@ -17,8 +17,8 @@ export async function ModuleMessagerie({
       COUNT(*) FILTER (WHERE statut IN ('echoue','rejete_dnd')) AS echecs,
       COALESCE(SUM(cout),0)::numeric(12,4) AS cout
       FROM messages WHERE canal = ANY($1)`, [canaux]),
-    pool.query(`SELECT m.canal, m.de, m.vers, m.sujet, m.contenu, m.statut, m.categorie, m.operateur_route, m.cout, m.erreur, m.created_at,
-      COUNT(ma.id)::int AS pieces_jointes
+    pool.query(`SELECT m.canal, m.de, m.vers, m.sujet, m.contenu, m.statut, m.categorie, m.operateur_route, m.cout, m.erreur, m.created_at, m.delivered_at,
+      m.fournisseur_id, m.mode_envoi, COUNT(ma.id)::int AS pieces_jointes
       FROM messages m LEFT JOIN message_attachments ma ON ma.message_id = m.id
       WHERE m.canal = ANY($1) GROUP BY m.id ORDER BY m.created_at DESC LIMIT 15`, [canaux]),
     pool.query(`SELECT pays, prefixe, operateur, cout_par_unite, priorite FROM routes_tarifs
@@ -55,14 +55,14 @@ export async function ModuleMessagerie({
               <p className="mt-1 text-[11px] text-amber-300/80">Les fichiers sont conservés avec le message. Le transport physique dépend du canal et de sa passerelle (MMS/RCS/WhatsApp/e-mail).</p>
             </div>
           </div>
-          <div className="md:col-span-2"><button className={BOUTON}>Envoyer via la plateforme →</button><p className="text-[11px] text-slate-500 mt-2">Routage Least-Cost automatique · vérification DND en temps réel · CDR généré · passerelle opérateur en mode démonstration.</p></div>
+          <div className="md:col-span-2"><button className={BOUTON}>Envoyer via la plateforme →</button><p className="text-[11px] text-slate-500 mt-2">Routage Least-Cost automatique · vérification DND en temps réel · CDR généré · passerelle réelle si Twilio est configuré.</p></div>
         </form>
       </Carte>
       <Carte><h2 className="font-bold text-white mb-3">Routage dynamique (Least-Cost)</h2><ul className="space-y-1.5 text-sm">{routes.rows.map((r, i) => <li key={i} className="flex items-center gap-2 border border-[#1c2a4a] rounded-md px-2.5 py-1.5 bg-[#0a1120]"><span className="text-xs font-mono text-slate-400">{r.prefixe}</span><span className="text-slate-200 text-xs truncate">{r.operateur}</span><span className="ml-auto text-xs text-emerald-300">{Number(r.cout_par_unite).toFixed(4)} $</span></li>)}{routes.rows.length === 0 && <li className="text-slate-500 text-sm">Tarification directe (hors réseau télécom).</li>}</ul></Carte>
     </div>
     <h2 className="font-bold text-white mb-3">Historique récent</h2>
     <Tableau entetes={["Canal", "De", "Vers", "Contenu", "Pièces", "Catégorie", "Route", "Coût", "Statut", "Date"]}
-      lignes={liste.rows.map((m) => [<span key="c" className="font-mono text-xs uppercase text-sky-300">{m.canal}</span>,<span key="d" className="text-slate-300">{m.de}</span>,<span key="v" className="text-slate-200">{m.vers}</span>,<span key="t" className="text-slate-400 max-w-56 truncate inline-block" title={m.erreur ?? m.contenu}>{m.sujet ? `${m.sujet} — ` : ""}{m.contenu}</span>,<span key="a" className="text-xs text-sky-300">{m.pieces_jointes > 0 ? `📎 ${m.pieces_jointes}` : "—"}</span>,<span key="g" className="text-xs text-slate-400">{m.categorie}</span>,<span key="r" className="text-xs text-slate-400">{m.operateur_route ?? "—"}</span>,<span key="p" className="text-xs text-amber-200">{Number(m.cout).toFixed(4)} $</span>,<BadgeStatut key="s" statut={m.statut} />,<span key="dt" className="text-xs text-slate-500">{new Date(m.created_at).toLocaleString("fr-FR")}</span>])}
+      lignes={liste.rows.map((m) => [<span key="c" className="font-mono text-xs uppercase text-sky-300">{m.canal}</span>,<span key="d" className="text-slate-300">{m.de}</span>,<span key="v" className="text-slate-200">{m.vers}</span>,<span key="t" className="text-slate-400 max-w-56 truncate inline-block" title={m.erreur ?? m.contenu}>{m.sujet ? `${m.sujet} — ` : ""}{m.contenu}</span>,<span key="a" className="text-xs text-sky-300">{m.pieces_jointes > 0 ? `📎 ${m.pieces_jointes}` : "—"}</span>,<span key="g" className="text-xs text-slate-400">{m.categorie}</span>,<span key="r" className="text-xs text-slate-400">{m.operateur_route ?? "—"}</span>,<span key="p" className="text-xs text-amber-200">{Number(m.cout).toFixed(4)} $</span>,<BadgeStatut key="s" statut={m.statut} />,<span key="dt" className="text-xs text-slate-500">{new Date(m.created_at).toLocaleString("fr-FR")}{m.delivered_at ? <><br /><span className="text-emerald-400">Livré : {new Date(m.delivered_at).toLocaleString("fr-FR")}</span></> : m.fournisseur_id ? <><br /><span className="text-sky-400">ID : {m.fournisseur_id}</span></> : null}</span>])}
     />
   </div>;
 }
