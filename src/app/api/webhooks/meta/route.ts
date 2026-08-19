@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { pool } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,23 @@ export async function GET(req: NextRequest) {
   return new NextResponse("Forbidden", { status: 403 });
 }
 
+function signatureValide(raw: string, signature: string | null): boolean {
+  const secret = process.env.META_APP_SECRET;
+  if (!secret || !signature?.startsWith("sha256=")) return false;
+  const expected = "sha256=" + crypto.createHmac("sha256", secret).update(raw, "utf8").digest("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null) as any;
+  const raw = await req.text();
+  if (!signatureValide(raw, req.headers.get("x-hub-signature-256"))) {
+    return new NextResponse("Signature Meta invalide", { status: 403 });
+  }
+  const body = JSON.parse(raw) as any;
   if (!body || body.object !== "whatsapp_business_account") {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
