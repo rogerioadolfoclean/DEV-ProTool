@@ -1,15 +1,6 @@
 import "server-only";
 
-/**
- * Passerelle opérateur réelle (RF-001, RF-002, RF-007).
- *
- * Si les variables TWILIO_* sont configurées, les SMS, WhatsApp et appels
- * partent réellement via Twilio. Sinon la plateforme reste en mode
- * démonstration : l'enregistrement, le routage Least-Cost, la conformité DND
- * et le CDR sont réels, mais AUCUN envoi physique n'a lieu — le statut
- * résultant est alors « simule », jamais « livre ».
- */
-
+/** Passerelles opérateur réelles (RF-001, RF-002, RF-007). */
 export type ResultatPasserelle =
   | { mode: "demo"; raison: string }
   | { mode: "reel"; statut: "envoye" | "echoue"; fournisseurId: string | null; erreur: string | null };
@@ -29,14 +20,18 @@ export function etatPasserelle(): EtatPasserelle {
   const sid = Boolean(process.env.TWILIO_ACCOUNT_SID);
   const token = Boolean(process.env.TWILIO_AUTH_TOKEN);
   const numero = process.env.TWILIO_PHONE_NUMBER ?? null;
-  const configuree = sid && token && Boolean(numero);
+  const twilio = sid && token && Boolean(numero);
+  const metaWhatsapp = Boolean(process.env.META_WHATSAPP_ACCESS_TOKEN && process.env.META_WHATSAPP_PHONE_NUMBER_ID);
   return {
-    configuree,
+    configuree: twilio || metaWhatsapp,
     sid,
     token,
     numero: Boolean(numero),
     numeroAffiche: numero,
-    canauxReels: configuree ? ["sms", "whatsapp", "voix"] : [],
+    canauxReels: [
+      ...(twilio ? ["sms", "voix"] : []),
+      ...(metaWhatsapp ? ["whatsapp"] : []),
+    ],
   };
 }
 
@@ -44,40 +39,41 @@ export function passerelleConfiguree(): boolean {
   return etatPasserelle().configuree;
 }
 
-function identifiants() {
+function identifiantsTwilio() {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const numero = process.env.TWILIO_PHONE_NUMBER;
   if (!sid || !token || !numero) return null;
+  return { sid, numero, auth: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64") };
+}
+
+function identifiantsMeta() {
+  const token = process.env.META_WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneNumberId) return null;
   return {
-    sid,
-    numero,
-    auth: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"),
+    token,
+    phoneNumberId,
+    version: process.env.META_GRAPH_API_VERSION ?? "v23.0",
   };
 }
 
-/** URL de base publique de la plateforme (pour les rappels Twilio). */
 export function urlBase(): string {
   const explicite = process.env.APP_BASE_URL ?? process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
   if (explicite) return explicite.replace(/\/$/, "");
-
-  // Vercel fournit VERCEL_URL sans protocole. Cela évite d'envoyer les
-  // callbacks Twilio vers une URL locale ou une ancienne URL de production.
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-
   return "https://omnicomm-360.vercel.app";
 }
 
-/** URL du webhook qui reçoit les mises à jour de statut de livraison. */
 export function urlWebhookStatut(): string {
   return `${urlBase()}/api/webhooks/twilio`;
 }
 
-async function appelerTwilio(
-  chemin: string,
-  corps: URLSearchParams,
-  auth: string
-): Promise<ResultatPasserelle> {
+export function urlWebhookMeta(): string {
+  return `${urlBase()}/api/webhooks/meta`;
+}
+
+async function appelerTwilio(chemin: string, corps: URLSearchParams, auth: string): Promise<ResultatPasserelle> {
   try {
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${chemin}`, {
       method: "POST",
@@ -86,38 +82,51 @@ async function appelerTwilio(
       cache: "no-store",
     });
     const json = (await res.json()) as { sid?: string; message?: string; code?: number };
-    if (!res.ok) {
-      return {
-        mode: "reel",
-        statut: "echoue",
-        fournisseurId: null,
-        erreur: `Twilio ${res.status}${json.code ? ` (code ${json.code})` : ""} : ${json.message ?? "erreur inconnue"}`,
-      };
-    }
+    if (!res.ok) return { mode: "reel", statut: "echoue", fournisseurId: null, erreur: `Twilio ${res.status}${json.code ? ` (code ${json.code})` : ""} : ${json.message ?? "erreur inconnue"}` };
     return { mode: "reel", statut: "envoye", fournisseurId: json.sid ?? null, erreur: null };
   } catch (e) {
-    return {
-      mode: "reel",
-      statut: "echoue",
-      fournisseurId: null,
-      erreur: e instanceof Error ? e.message : "Passerelle injoignable",
-    };
+    return { mode: "reel", statut: "echoue", fournisseurId: null, erreur: e instanceof Error ? e.message : "Passerelle injoignable" };
   }
 }
 
-/** Envoi réel d'un SMS ou WhatsApp (RF-001, RF-002). */
-export async function envoyerViaPasserelle(
-  canal: string,
-  vers: string,
-  contenu: string
-): Promise<ResultatPasserelle> {
-  if (!CANAUX_SMS.includes(canal)) {
-    return { mode: "demo", raison: `Canal ${canal} sans passerelle réelle configurée` };
+/** WhatsApp réel via Meta Cloud API. Le webhook Meta doit être configuré sur l'application Meta. */
+async function envoyerWhatsAppMeta(vers: string, contenu: string): Promise<ResultatPasserelle> {
+  const id = identifiantsMeta();
+  if (!id) return { mode: "demo", raison: "META_WHATSAPP_ACCESS_TOKEN / META_WHATSAPP_PHONE_NUMBER_ID absents — aucun envoi physique WhatsApp" };
+  const numero = vers.replace(/^whatsapp:/i, "").replace(/\s+/g, "");
+  try {
+    const res = await fetch(`https://graph.facebook.com/${id.version}/${id.phoneNumberId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${id.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: numero,
+        type: "text",
+        text: { preview_url: false, body: contenu },
+      }),
+      cache: "no-store",
+    });
+    const json = (await res.json()) as { messages?: Array<{ id?: string }>; error?: { message?: string; code?: number } };
+    if (!res.ok) return { mode: "reel", statut: "echoue", fournisseurId: null, erreur: `Meta ${res.status}${json.error?.code ? ` (code ${json.error.code})` : ""} : ${json.error?.message ?? "erreur inconnue"}` };
+    return { mode: "reel", statut: "envoye", fournisseurId: json.messages?.[0]?.id ?? null, erreur: null };
+  } catch (e) {
+    return { mode: "reel", statut: "echoue", fournisseurId: null, erreur: e instanceof Error ? e.message : "Passerelle Meta injoignable" };
   }
-  const id = identifiants();
-  if (!id) {
-    return { mode: "demo", raison: "Identifiants TWILIO_* absents — aucun envoi physique" };
+}
+
+/** Envoi réel SMS/WhatsApp. WhatsApp privilégie Meta Cloud API lorsqu'elle est configurée. */
+export async function envoyerViaPasserelle(canal: string, vers: string, contenu: string): Promise<ResultatPasserelle> {
+  if (!CANAUX_SMS.includes(canal)) return { mode: "demo", raison: `Canal ${canal} sans passerelle réelle configurée` };
+
+  if (canal === "whatsapp") {
+    const meta = identifiantsMeta();
+    if (meta) return envoyerWhatsAppMeta(vers, contenu);
   }
+
+  const id = identifiantsTwilio();
+  if (!id) return { mode: "demo", raison: canal === "whatsapp" ? "Aucune passerelle WhatsApp réelle configurée" : "Identifiants TWILIO_* absents — aucun envoi physique" };
+
   const corps = new URLSearchParams({
     To: canal === "whatsapp" ? `whatsapp:${vers}` : vers,
     From: canal === "whatsapp" ? `whatsapp:${id.numero}` : id.numero,
@@ -129,21 +138,10 @@ export async function envoyerViaPasserelle(
 }
 
 /** Lancement réel d'un appel vocal (RF-007). */
-export async function appelerViaPasserelle(
-  vers: string,
-  message: string
-): Promise<ResultatPasserelle> {
-  const id = identifiants();
-  if (!id) {
-    return { mode: "demo", raison: "Identifiants TWILIO_* absents — aucun appel physique" };
-  }
+export async function appelerViaPasserelle(vers: string, message: string): Promise<ResultatPasserelle> {
+  const id = identifiantsTwilio();
+  if (!id) return { mode: "demo", raison: "Identifiants TWILIO_* absents — aucun appel physique" };
   const twiml = `<Response><Say language="fr-FR">${message.replace(/[<>&]/g, "")}</Say></Response>`;
-  const corps = new URLSearchParams({
-    To: vers,
-    From: id.numero,
-    Twiml: twiml,
-    StatusCallback: urlWebhookStatut(),
-    StatusCallbackEvent: "completed",
-  });
+  const corps = new URLSearchParams({ To: vers, From: id.numero, Twiml: twiml, StatusCallback: urlWebhookStatut(), StatusCallbackEvent: "completed" });
   return appelerTwilio(`${id.sid}/Calls.json`, corps, id.auth);
 }
