@@ -58,7 +58,14 @@ function identifiants() {
 
 /** URL de base publique de la plateforme (pour les rappels Twilio). */
 export function urlBase(): string {
-  return process.env.APP_BASE_URL ?? "https://omnicomm-360.vercel.app";
+  const explicite = process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (explicite) return explicite.replace(/\/$/, "");
+
+  // Vercel fournit VERCEL_URL sans protocole. Cela évite d'envoyer les
+  // callbacks Twilio vers une URL locale ou une ancienne URL de production.
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+
+  return "https://omnicomm-360.vercel.app";
 }
 
 /** URL du webhook qui reçoit les mises à jour de statut de livraison. */
@@ -76,6 +83,7 @@ async function appelerTwilio(
       method: "POST",
       headers: { Authorization: auth, "Content-Type": "application/x-www-form-urlencoded" },
       body: corps,
+      cache: "no-store",
     });
     const json = (await res.json()) as { sid?: string; message?: string; code?: number };
     if (!res.ok) {
@@ -114,8 +122,9 @@ export async function envoyerViaPasserelle(
     To: canal === "whatsapp" ? `whatsapp:${vers}` : vers,
     From: canal === "whatsapp" ? `whatsapp:${id.numero}` : id.numero,
     Body: contenu,
-    // Twilio rappellera ce webhook à chaque changement de statut (livré / échoué).
+    // Twilio rappelle ce webhook à chaque étape de livraison demandée.
     StatusCallback: urlWebhookStatut(),
+    StatusCallbackEvent: "queued,sent,delivered,undelivered,failed",
   });
   return appelerTwilio(`${id.sid}/Messages.json`, corps, id.auth);
 }
