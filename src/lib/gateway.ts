@@ -58,7 +58,7 @@ function identifiants() {
 
 /** URL de base publique de la plateforme (pour les rappels Twilio). */
 export function urlBase(): string {
-  const explicite = process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  const explicite = process.env.APP_BASE_URL ?? process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
   if (explicite) return explicite.replace(/\/$/, "");
 
   // Vercel fournit VERCEL_URL sans protocole. Cela évite d'envoyer les
@@ -122,7 +122,6 @@ export async function envoyerViaPasserelle(
     To: canal === "whatsapp" ? `whatsapp:${vers}` : vers,
     From: canal === "whatsapp" ? `whatsapp:${id.numero}` : id.numero,
     Body: contenu,
-    // Twilio rappelle ce webhook à chaque étape de livraison demandée.
     StatusCallback: urlWebhookStatut(),
     StatusCallbackEvent: "queued,sent,delivered,undelivered,failed",
   });
@@ -138,7 +137,6 @@ export async function appelerViaPasserelle(
   if (!id) {
     return { mode: "demo", raison: "Identifiants TWILIO_* absents — aucun appel physique" };
   }
-  // TwiML minimal : la plateforme lit le message puis raccroche.
   const twiml = `<Response><Say language="fr-FR">${message.replace(/[<>&]/g, "")}</Say></Response>`;
   const corps = new URLSearchParams({
     To: vers,
