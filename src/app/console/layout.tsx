@@ -9,7 +9,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   const session = await exigerSession();
 
   return (
-    <div className="flex-1 flex min-h-screen">
+    <div className="console-root flex-1 flex min-h-screen bg-[#050b18] text-slate-100">
       {/* Barre latérale : 5 domaines / 24 modules */}
       <aside className="hidden lg:flex w-72 flex-col border-r border-[#1c2a4a] bg-[#080e1f] max-h-screen sticky top-0 overflow-y-auto">
         <div className="px-4 py-4 border-b border-[#1c2a4a]">
@@ -59,8 +59,8 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
       </aside>
 
       {/* Contenu */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="border-b border-[#1c2a4a] bg-[#080e1f]/80 backdrop-blur sticky top-0 z-10">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#050b18]">
+        <header className="border-b border-[#1c2a4a] bg-[#080e1f]/95 backdrop-blur sticky top-0 z-10">
           <div className="px-4 py-3 flex items-center gap-3">
             <Link href="/console" className="lg:hidden font-bold text-white text-sm">
               OmniComm <span className="text-sky-400">360°</span>
@@ -90,7 +90,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
             ))}
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">
+        <main className="flex-1 p-4 md:p-6 bg-[#050b18]">
           <BandeauPasserelle />
           {children}
         </main>
