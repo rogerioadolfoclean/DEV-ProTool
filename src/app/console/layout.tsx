@@ -6,6 +6,16 @@ import { ACCENTS } from "@/components/ui";
 import { BandeauPasserelle } from "@/components/bandeau-passerelle";
 import { PushNotifications } from "@/components/push-notifications";
 
+const COMMERCIAL = [
+  { href: "/console/campagnes", label: "📣 Campagnes" },
+  { href: "/console/listes-appels", label: "☷ Listes d'appels" },
+  { href: "/auto-dialer", label: "☎ Auto-Dialer" },
+  { href: "/console/file-appels", label: "↻ File d'appels" },
+  { href: "/clients", label: "♙ Clients" },
+  { href: "/console/contacts", label: "♧ Contacts" },
+  { href: "/console/rendez-vous", label: "□ Rendez-vous" },
+];
+
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
   const session = await exigerSession();
 
@@ -22,6 +32,20 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
           <Link href="/console" className="block px-3 py-2 rounded-md text-sm text-slate-200 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/30">📊 Vue d&apos;ensemble</Link>
           <Link href="/console/historique" className="block px-3 py-2 rounded-md text-sm text-slate-200 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/30">🕒 Historique universel</Link>
           <Link href="/console/passerelle" className="block px-3 py-2 rounded-md text-sm text-slate-200 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/30">🔌 Passerelle opérateur</Link>
+
+          <div>
+            <div className="px-3 text-[11px] font-bold uppercase tracking-wider text-amber-400">3.0 — Gestion commerciale</div>
+            <ul className="mt-1 space-y-0.5">
+              {COMMERCIAL.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] text-slate-300 hover:text-white hover:bg-sky-500/10">
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {DOMAINES.map((d) => {
             const a = ACCENTS[d.couleur];
             return (
@@ -58,6 +82,9 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
             </div>
           </div>
           <div className="lg:hidden px-4 pb-2 overflow-x-auto flex gap-2">
+            {COMMERCIAL.map((m) => (
+              <Link key={m.href} href={m.href} className="text-[11px] whitespace-nowrap border border-[#1c2a4a] rounded-full px-2.5 py-1 text-slate-300">{m.label.replace(/^[^ ]+ /, "")}</Link>
+            ))}
             {DOMAINES.flatMap((d) => d.modules).map((m) => (
               <Link key={m.rf} href={m.href} className="text-[11px] whitespace-nowrap border border-[#1c2a4a] rounded-full px-2.5 py-1 text-slate-300">{m.rf} {m.titre.split(" ")[0]}</Link>
             ))}
