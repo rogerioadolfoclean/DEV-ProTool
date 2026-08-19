@@ -2,11 +2,12 @@ import "server-only";
 
 export type AiProvider = "claude" | "openai";
 
+/** Claude is the platform default; OpenAI remains available through the switch. */
 export const DEFAULT_AI_PROVIDER: AiProvider = "claude";
 
 export const AI_MODELS: Record<AiProvider, string> = {
   claude: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
-  openai: process.env.OPENAI_MODEL || "gpt-5.6-sol",
+  openai: process.env.OPENAI_MODEL || "gpt-5.6",
 };
 
 export function normalizeAiProvider(value: unknown): AiProvider {
