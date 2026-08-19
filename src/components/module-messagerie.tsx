@@ -50,8 +50,8 @@ export async function ModuleMessagerie({
           <div className="md:col-span-2">
             <label className="block text-xs text-slate-400 mb-1">Pièces jointes</label>
             <div className="rounded-lg border border-[#263757] bg-[#08101f] p-3">
-              <input name="piecesJointes" type="file" multiple accept="image/*,.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-500" />
-              <p className="mt-2 text-[11px] text-slate-500">🖼️ Images · 📄 PDF · 📝 Word (.doc/.docx) · 5 fichiers maximum · 4 Mo par fichier.</p>
+              <input name="piecesJointes" type="file" multiple accept="image/*,.pdf,.doc,.docx,.mp3,audio/mpeg,audio/mp3,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-500" />
+              <p className="mt-2 text-[11px] text-slate-500">🖼️ Images · 📄 PDF · 📝 Word (.doc/.docx) · 🎵 Audio MP3 · 5 fichiers maximum · 4 Mo par fichier.</p>
               <p className="mt-1 text-[11px] text-amber-300/80">Les fichiers sont conservés avec le message. Le transport physique dépend du canal et de sa passerelle (MMS/RCS/WhatsApp/e-mail).</p>
             </div>
           </div>
