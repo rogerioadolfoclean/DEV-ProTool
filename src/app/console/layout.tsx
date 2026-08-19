@@ -20,6 +20,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
         </div>
         <nav className="flex-1 px-2 py-3 space-y-4">
           <Link href="/console" className="block px-3 py-2 rounded-md text-sm text-slate-200 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/30">📊 Vue d&apos;ensemble</Link>
+          <Link href="/console/historique" className="block px-3 py-2 rounded-md text-sm text-slate-200 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/30">🕒 Historique universel</Link>
           <Link href="/console/passerelle" className="block px-3 py-2 rounded-md text-sm text-slate-200 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/30">🔌 Passerelle opérateur</Link>
           {DOMAINES.map((d) => {
             const a = ACCENTS[d.couleur];
@@ -60,6 +61,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
             {DOMAINES.flatMap((d) => d.modules).map((m) => (
               <Link key={m.rf} href={m.href} className="text-[11px] whitespace-nowrap border border-[#1c2a4a] rounded-full px-2.5 py-1 text-slate-300">{m.rf} {m.titre.split(" ")[0]}</Link>
             ))}
+            <Link href="/console/historique" className="text-[11px] whitespace-nowrap border border-[#1c2a4a] rounded-full px-2.5 py-1 text-slate-300">Historique</Link>
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6 bg-[#050b18]">
