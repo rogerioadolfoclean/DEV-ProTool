@@ -12,6 +12,8 @@ const ALLOWED = new Set([
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "audio/mpeg",
+  "audio/mp3",
 ]);
 
 function isAllowed(file: File) {
