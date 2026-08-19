@@ -1,415 +1,53 @@
-import Link from "next/link";
-import { SLOGAN } from "@/lib/constants";
+"use client";
 
-/* ————— Données fidèles au mockup (icônes + libellés) ————— */
+import { useEffect, useMemo, useState } from "react";
 
-const BADGES = ["API RESTful", "JSON", "HTTPS/TLS", "OAuth 2.0", "Multi-Tenant", "Évolutif"];
+type Call = { id:number; status:string; name:string; phone:string; campaign:string; duration:number; outcome?:string; intent?:string };
+type Dashboard = { stats:{today:number;success:number;conversions:number;waiting:number;failures:number}; calls:Call[]; campaigns:{name:string;progress:number;status:string}[]; actions:{name:string;time:string;type:string}[]; aiSummary:string[]; client?:{external_id:string;name:string;phone:string;email:string;city:string;status:string} };
 
-type Rf = { rf: string; icone: string; titre: string; sousTitre: string; href: string };
+const fallback: Dashboard = {
+  stats:{today:1248,success:842,conversions:128,waiting:356,failures:50},
+  calls:[
+    {id:1,status:"in_progress",name:"Jean Mukendi",phone:"+243 81 234 5678",campaign:"Rappel RDV",duration:154,intent:"Replanifier rendez-vous"},
+    {id:2,status:"ringing",name:"Marie-Louise K.",phone:"+243 81 987 6543",campaign:"Offre Spéciale",duration:15},
+    {id:3,status:"waiting",name:"Paul Tshibangu",phone:"+243 85 111 2233",campaign:"Enquête Client",duration:0},
+    {id:4,status:"busy",name:"Sophie Lumbu",phone:"+243 81 555 6677",campaign:"Rappel RDV",duration:0},
+    {id:5,status:"no_answer",name:"Alain Banza",phone:"+243 99 888 7766",campaign:"Offre Spéciale",duration:0}
+  ],
+  campaigns:[{name:"Rappel RDV",progress:72,status:"Active"},{name:"Offre Spéciale",progress:45,status:"Active"},{name:"Enquête Client",progress:60,status:"Active"}],
+  actions:[{name:"Rappeler Marie-Louise K.",time:"Aujourd'hui à 14:30",type:"calendar"},{name:"Relancer Paul Tshibangu",time:"Demain à 09:00",type:"phone"},{name:"Envoyer offre par email",time:"Sophie Lumbu",type:"mail"}],
+  aiSummary:["Aujourd'hui, le taux de réussite est bon avec 67.6% d'appels aboutis.","Les clients sont réceptifs aux offres.","Plusieurs demandes de reprogrammation de rendez-vous.","Taux de conversion en hausse.","Recommandation : augmenter les rappels entre 10h et 12h."],
+  client:{external_id:"CLI-000123",name:"Jean Mukendi",phone:"+243 81 234 5678",email:"jean.mukendi@example.com",city:"Kinshasa",status:"Client actif"}
+};
 
-const D31: Rf[] = [
-  { rf: "RF-001", icone: "💬", titre: "SMS (Transactionnel et Marketing)", sousTitre: "Routage Dynamique (Least-Cost)", href: "/console/sms" },
-  { rf: "RF-002", icone: "📲", titre: "WhatsApp Business API et RCS", sousTitre: "Messages Riches et Interactifs", href: "/console/whatsapp" },
-  { rf: "RF-003", icone: "✉️", titre: "E-mail Transactionnel", sousTitre: "API REST & SMTP", href: "/console/email" },
-  { rf: "RF-004", icone: "🔔", titre: "Notifications Push", sousTitre: "FCM (Android) & APNS (iOS)", href: "/console/push" },
-  { rf: "RF-005", icone: "📠", titre: "Fax Digital (FoIP)", sousTitre: "Envoi et Réception via API", href: "/console/fax" },
-  { rf: "RF-006", icone: "🛡️", titre: "Conformité DND, Opt-in/Opt-out", sousTitre: "Gestion en Temps Réel", href: "/console/conformite-dnd" },
-];
+const statusLabel:Record<string,string>={in_progress:"En cours",ringing:"Sonnerie",waiting:"En attente",busy:"Occupé",no_answer:"Sans réponse",completed:"Réussi"};
 
-const D32: Rf[] = [
-  { rf: "RF-007", icone: "📞", titre: "Appels Entrants/Sortants, IVR,", sousTitre: "Conférence, SVI, Boîte Vocale", href: "/console/appels" },
-  { rf: "RF-008", icone: "🤖", titre: "IA Conversationnelle (TTS/STT + LLM)", sousTitre: "Voix Intelligente et Automatisation", href: "/console/ia-conversationnelle" },
-  { rf: "RF-009", icone: "🌐", titre: "SIP Trunking & WebRTC", sousTitre: "Communication dans le Navigateur", href: "/console/sip-webrtc" },
-  { rf: "RF-010", icone: "📻", titre: "Radio Web & Podcast", sousTitre: "Streaming HLS / Icecast", href: "/console/radio-web" },
-  { rf: "RF-011", icone: "☎️", titre: "STIR/SHAKEN", sousTitre: "Authentification Anti-Spoofing", href: "/console/stir-shaken" },
-];
+function fmtDuration(sec:number){return `${String(Math.floor(sec/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`}
 
-const D33: Rf[] = [
-  { rf: "RF-012", icone: "💳", titre: "Gestion des SIM M2M/IoT", sousTitre: "Activation, Suspension, Diagnostic", href: "/console/sims" },
-  { rf: "RF-013", icone: "📍", titre: "Géolocalisation (Triangulation)", sousTitre: "Localisation via Antennes GSM", href: "/console/geolocalisation" },
-  { rf: "RF-014", icone: "📡", titre: "Consultation de Couverture Réseau", sousTitre: "Par Opérateur et Zone Géographique", href: "/console/couverture" },
-  { rf: "RF-015", icone: "🔢", titre: "Numéros Virtuels", sousTitre: "Locaux, Mobiles, Gratuits, Payants", href: "/console/numeros" },
-];
-
-const D34: Rf[] = [
-  { rf: "RF-016", icone: "⌨️", titre: "Portail du Développeur", sousTitre: "Sandbox, Docs Interactives, Logs", href: "/console/developpeur" },
-  { rf: "RF-017", icone: "👥", titre: "Architecture Multi-Tenant", sousTitre: "White Label pour Revendeurs", href: "/console/tenants" },
-  { rf: "RF-018", icone: "🧾", titre: "Facturation à la Consommation", sousTitre: "Prépayé / Postpayé via RADIUS", href: "/console/facturation" },
-  { rf: "RF-019", icone: "💰", titre: "Revenue Assurance", sousTitre: "Détection de Fraudes et Pertes", href: "/console/revenue-assurance" },
-  { rf: "RF-020", icone: "📋", titre: "Interface d'Administration MVNO", sousTitre: "Offres, Profils, Changements de Forfaits", href: "/console/mvno" },
-];
-
-const D35: Rf[] = [
-  { rf: "RF-021", icone: "🔗", titre: "Webhooks Configurables", sousTitre: "Événements en Temps Réel", href: "/console/webhooks" },
-  { rf: "RF-022", icone: "📊", titre: "Analyses Détaillées (Analytics)", sousTitre: "MOS, Taux de Livraison, Coût par Destination", href: "/console/analytics" },
-  { rf: "RF-023", icone: "🗄️", titre: "Rétention des CDR et Journaux", sousTitre: "Conformité Réglementaire", href: "/console/cdrs" },
-  { rf: "RF-024", icone: "🛡️", titre: "Détection Active des Fraudes", sousTitre: "SIM Box, Appels Frauduleux", href: "/console/anti-fraude" },
-];
-
-const CANAUX = [
-  { icone: "💬", nom: "SMS" },
-  { icone: "📲", nom: "WhatsApp" },
-  { icone: "✉️", nom: "E-mail" },
-  { icone: "🔔", nom: "Push" },
-  { icone: "📞", nom: "Voix / VoIP" },
-  { icone: "🌐", nom: "WebRTC" },
-  { icone: "📻", nom: "Radio / Streaming" },
-  { icone: "💳", nom: "IoT / SIM" },
-];
-
-const SORTIES = [
-  { icone: "📡", nom: "Opérateurs Télécoms" },
-  { icone: "🌍", nom: "Passerelles Internationales" },
-  { icone: "☁️", nom: "Fournisseurs Cloud" },
-  { icone: "🧩", nom: "Partenaires / API" },
-  { icone: "🗄️", nom: "CDR et Journaux" },
-  { icone: "📈", nom: "Moteur d'Analyses" },
-];
-
-const MOTEURS = [
-  { icone: "🔀", nom: ["MOTEUR", "DE ROUTAGE"], couleur: "text-fuchsia-300 border-fuchsia-500/50", lueur: "shadow-[0_0_18px_rgba(217,70,239,0.25)]" },
-  { icone: "🧮", nom: ["MOTEUR DE", "FACTURATION"], couleur: "text-sky-300 border-sky-500/50", lueur: "shadow-[0_0_18px_rgba(14,165,233,0.25)]" },
-  { icone: "✅", nom: ["MOTEUR", "DE SÉCURITÉ"], couleur: "text-emerald-300 border-emerald-500/50", lueur: "shadow-[0_0_18px_rgba(16,185,129,0.25)]" },
-  { icone: "🧠", nom: ["MOTEUR", "D'IA"], couleur: "text-amber-300 border-amber-500/50", lueur: "shadow-[0_0_18px_rgba(245,158,11,0.25)]" },
-  { icone: "📈", nom: ["MOTEUR", "D'ANALYSES"], couleur: "text-cyan-300 border-cyan-500/50", lueur: "shadow-[0_0_18px_rgba(34,211,238,0.25)]" },
-];
-
-const COUCHE_DONNEES = [
-  { icone: "🗃️", nom: "CLUSTER DE BASES DE DONNÉES" },
-  { icone: "🗄️", nom: "STOCKAGE CDR" },
-  { icone: "⚡", nom: "CACHE (REDIS)" },
-  { icone: "🏦", nom: "ENTREPÔT DE DONNÉES" },
-];
-
-const SECURITE = [
-  { icone: "🔒", nom: "TLS 1.3" },
-  { icone: "🔐", nom: "OAuth 2.0" },
-  { icone: "⚖️", nom: "RGPD / LGPD" },
-  { icone: "🏛️", nom: "ARCEP / ANRT" },
-  { icone: "🛡️", nom: "STIR/SHAKEN" },
-  { icone: "🕵️", nom: "Anti-Fraude (SIM Box)" },
-];
-
-const EXP_DEV = [
-  { icone: "📖", nom: "DOCUMENTATION INTERACTIVE" },
-  { icone: "🧪", nom: "SANDBOX DE TEST" },
-  { icone: "🔑", nom: "CLÉS API & OAUTH" },
-  { icone: "📜", nom: "LOGS EN TEMPS RÉEL" },
-  { icone: "🧰", nom: "SDKs (JS, PHP, PY, JAVA)" },
-];
-
-const FLUX = [
-  { icone: "🧑‍💻", nom: "Développeur" },
-  { icone: "📱", nom: "Votre Application" },
-  { icone: "🔗", nom: "API REST · HTTPS" },
-  { icone: "☁️", nom: "PLATEFORME OMNICOMM 360°" },
-  { icone: "📡", nom: "Opérateurs / Passerelles / Partenaires" },
-  { icone: "👤", nom: "Destination Finale (Utilisateur)" },
-];
-
-const CAS = [
-  { icone: "🏦", nom: "Fintech" },
-  { icone: "🛒", nom: "E-commerce" },
-  { icone: "🚚", nom: "Logistique" },
-  { icone: "❤️", nom: "Santé" },
-  { icone: "🏛️", nom: "Gouvernement" },
-  { icone: "🎓", nom: "Éducation" },
-];
-
-const GARANTIES = ["HAUTE DISPONIBILITÉ", "ÉVOLUTIVITÉ HORIZONTALE", "INFRASTRUCTURE MONDIALE", "SAUVEGARDE & PRA", "SUPPORT 24/7"];
-
-/* ————— Composants du mockup ————— */
-
-function CarteRf({ m, accent }: { m: Rf; accent: string }) {
-  return (
-    <Link
-      href={m.href}
-      className={`flex items-center gap-2.5 rounded-lg border border-[#233457] bg-[#0a1226]/90 px-2.5 py-2 hover:border-sky-400/70 transition-colors`}
-    >
-      <span className={`text-[11px] font-mono font-bold shrink-0 ${accent}`}>{m.rf}</span>
-      <span className="text-base shrink-0">{m.icone}</span>
-      <span className="min-w-0">
-        <span className="block text-[12px] font-semibold text-slate-100 leading-tight">{m.titre}</span>
-        <span className="block text-[10.5px] text-slate-400 leading-tight">{m.sousTitre}</span>
-      </span>
-    </Link>
-  );
-}
-
-function PanneauDomaine({
-  numero,
-  nom,
-  entete,
-  bord,
-  accent,
-  modules,
-}: {
-  numero: string;
-  nom: string;
-  entete: string;
-  bord: string;
-  accent: string;
-  modules: Rf[];
-}) {
-  return (
-    <section className={`rounded-xl border ${bord} bg-[#0b1430]/80 overflow-hidden`}>
-      <div className={`flex items-center gap-2 px-3 py-2 ${entete}`}>
-        <span className="text-[11px] font-extrabold bg-white/15 rounded px-1.5 py-0.5">{numero}</span>
-        <h2 className="text-[11.5px] font-extrabold tracking-wide uppercase">{nom}</h2>
+export default function Home(){
+  const [data,setData]=useState<Dashboard>(fallback); const [query,setQuery]=useState(""); const [paused,setPaused]=useState(false); const [notice,setNotice]=useState("");
+  useEffect(()=>{fetch("/api/dashboard").then(r=>r.ok?r.json():null).then(d=>d&&setData(d)).catch(()=>{});},[]);
+  const calls=useMemo(()=>data.calls.filter(c=>`${c.name} ${c.phone} ${c.campaign}`.toLowerCase().includes(query.toLowerCase())),[data.calls,query]);
+  const startCall=async(c:Call)=>{setNotice(`Appel vers ${c.name} préparé — fournisseur téléphonique à connecter pour l'appel physique.`); await fetch("/api/dashboard",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({clientId:c.id})}).catch(()=>{});};
+  const stats=[
+    ["☎","Appels aujourd'hui",data.stats.today,"+12.5% vs hier","blue"],["✓","Appels réussis",data.stats.success,"67.6% de réussite","green"],["●","Conversions",data.stats.conversions,"10.2% de conversion","purple"],["◷","En attente",data.stats.waiting,"À rappeler","orange"],["⌁","Échecs",data.stats.failures,"4.0% d'échec","cyan"]
+  ];
+  return <main className="autodialer-shell">
+    <aside className="sidebar"><div className="brand"><div className="brand-icon">☎</div><div><b>AutoDialer IA</b><small>Voice AI + CRM</small></div></div>
+      <nav>{[["⌂","Tableau de bord"],["▣","Campagnes"],["☷","Listes d'appels"],["☎","Auto-Dialer"],["↻","File d'appels"],["♙","Clients"],["♧","Contacts"],["▣","Rendez-vous"],["◉","Segments"],["☎","Appels en cours"],["◷","Historique des appels"],["◉","Enregistrements"],["≡","Transcriptions"],["▥","Rapports"],["◒","Statistiques"],["⇩","Exportations"],["⚙","Utilisateurs"],["♙","Rôles & Permissions"],["⚙","Paramètres"],["⌘","Intégrations"],["≡","Logs & Audit"]].map(([i,t],idx)=><button key={t} className={idx===0?"nav active":"nav"} onClick={()=>setNotice(`${t} : module prêt à être développé.`)}><span>{i}</span>{t}</button>)}</nav>
+      <div className="profile"><div className="avatar">R</div><div><b>Rogerio Kabongo</b><small>Administrateur</small><small className="online">● En ligne</small></div></div>
+    </aside>
+    <section className="workspace"><header className="topbar"><div><h1>☰ <span>Tableau de bord</span></h1><small>Vue d'ensemble du système</small></div><div className="top-actions"><span className="operational">● Système opérationnel</span><span>◎ Français⌄</span><span>♧ <sup>6</sup></span><button onClick={()=>setNotice("Mode plein écran disponible dans le navigateur.")}>⛶</button></div></header>
+      <div className="stats-grid">{stats.map(([icon,title,value,sub,color])=><div className={`stat ${color}`} key={title}><div className="stat-icon">{icon}</div><div><small>{title}</small><strong>{value}</strong><span>{sub}</span></div></div>)}</div>
+      <div className="content-grid"><div className="main-column">
+        <section className="card calls-card"><div className="card-head"><h2>Appels en temps réel</h2><a>Voir tout</a><input aria-label="Rechercher" placeholder="Rechercher un client..." value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="table-wrap"><table><thead><tr><th>Statut</th><th>Client</th><th>Téléphone</th><th>Campagne</th><th>Durée</th><th></th></tr></thead><tbody>{calls.map(c=><tr key={c.id}><td><span className={`pill ${c.status}`}>{statusLabel[c.status]}</span></td><td><b>{c.name}</b></td><td>{c.phone}</td><td>{c.campaign}</td><td>{c.duration?fmtDuration(c.duration):"-"}</td><td><button className="call-btn" onClick={()=>startCall(c)}>☎</button></td></tr>)}</tbody></table></div></section>
+        <div className="lower-grid"><section className="card"><div className="card-head"><h2>Campagnes actives</h2><a>Voir toutes</a></div>{data.campaigns.map(c=><div className="campaign" key={c.name}><div><b>{c.name}</b><span>{c.status}</span></div><small>Progression</small><div className="progress"><i style={{width:`${c.progress}%`}}/></div><em>{c.progress}%</em></div>)}</section>
+          <section className="card"><div className="card-head"><h2>Prochaines actions IA</h2></div>{data.actions.map(a=><div className="action" key={a.name}><div className="action-icon">{a.type==="calendar"?"▣":a.type==="phone"?"☎":"✉"}</div><div><b>{a.name}</b><small>{a.time}</small></div><span>IA suggéré</span></div>)}<button className="wide-btn">Voir toutes les actions</button></section>
+          <section className="card"><div className="card-head"><h2>Résumé IA quotidien</h2><a>Généré par IA</a></div><div className="ai-summary">{data.aiSummary.map((s,i)=><p key={s}>{i===0?"": "✓"} {s}</p>)}</div><button className="wide-btn">✦ Voir analyse complète</button></section></div>
       </div>
-      <div className="p-2.5 space-y-2">
-        {modules.map((m) => (
-          <CarteRf key={m.rf} m={m} accent={accent} />
-        ))}
-      </div>
+      <aside className="live-panel"><div className="live-head"><b>Appel actif avec IA</b><span>En cours</span></div><div className="robot">◉<div className="waves">∿∿∿</div></div><h2>{data.client?.name}</h2><p>{data.client?.phone}</p><div className="client-badges"><span>Client existant</span><span>ID: {data.client?.external_id}</span></div><div className="conversation"><h3>Conversation en cours</h3><small>Transcription en temps réel</small><p><b>IA:</b> Bonjour Jean, ici l'assistant de l'entreprise DEVARYX. Je vous appelle concernant votre rendez-vous de demain. Êtes-vous toujours disponible ?</p><p><b>Client:</b> Non, je préfère vendredi matin.</p><p><b>IA:</b> Pas de problème. Vendredi matin vous convient à quelle heure ?</p><p><b>Client:</b> Vers 10h00 ça me va.</p><p><b>IA:</b> Parfait, c'est noté ✓. Votre rendez-vous est donc reprogrammé pour vendredi à 10h00. Merci Jean, bonne journée !</p></div><div className="intent"><small>Intention détectée par IA</small><b>Replanifier rendez-vous</b><span>✓</span></div><div className="controls"><button>🔊<small>Haut-parleur</small></button><button onClick={()=>setPaused(!paused)}>{paused?"▶":"Ⅱ"}<small>{paused?"Reprendre":"Pause"}</small></button><button className="hangup" onClick={()=>setNotice("Appel terminé.")}>☎<small>Raccrocher</small></button></div><div className="client-info"><h3>Informations client <a>Voir le profil</a></h3><p>Nom: <b>{data.client?.name}</b></p><p>Téléphone: <b>{data.client?.phone}</b></p><p>Email: <b>{data.client?.email}</b></p><p>Ville: <b>{data.client?.city}</b></p><p>Dernier contact: <b>15/05/2024</b></p><p>Statut: <b className="client-active">Client actif</b></p></div></aside></div>
+      <footer className="techbar"><span>✦ IA Conversationnelle <small>OpenAI / GPT-4</small></span><span>♬ Reconnaissance vocale <small>Whisper</small></span><span>◯ Voix naturelle <small>ElevenLabs</small></span><span>◉ Téléphonie <small>Twilio / Vonage</small></span><span>▤ Base de données <small>PostgreSQL</small></span><span>♙ Sécurité <small>Chiffrage AES-256</small></span></footer>
+      {notice&&<button className="toast" onClick={()=>setNotice("")}>{notice} ×</button>}
     </section>
-  );
-}
-
-function RackServeurs() {
-  return (
-    <div className="grid grid-cols-3 gap-1.5 mt-3">
-      {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="h-6 rounded-sm border border-[#24406e] bg-[#0a1a38] flex items-center justify-end gap-1 pr-1.5">
-          <span className={`h-1.5 w-1.5 rounded-full ${i % 3 === 0 ? "bg-emerald-400" : "bg-sky-400"} shadow-[0_0_6px_currentColor]`} />
-          <span className="h-1.5 w-1.5 rounded-full bg-sky-500/80" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ————— Page ————— */
-
-export default function Accueil() {
-  return (
-    <main className="flex-1 px-3 py-3 max-w-[1700px] mx-auto w-full">
-      {/* Boutons d'accès (discrets, hors mockup) */}
-      <div className="flex justify-end gap-2 mb-2">
-        <Link href="/docs" className="text-[11px] text-slate-400 hover:text-white border border-[#233457] rounded-md px-2.5 py-1">
-          Documentation API
-        </Link>
-        <Link href="/connexion" className="text-[11px] font-semibold text-white bg-sky-600 hover:bg-sky-500 rounded-md px-2.5 py-1">
-          Connexion →
-        </Link>
-      </div>
-
-      {/* ===== Corps du mockup : 3 colonnes ===== */}
-      <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr_300px] gap-3">
-        {/* Colonne gauche : 3.1 + 3.2 */}
-        <div className="space-y-3">
-          <PanneauDomaine
-            numero="3.1"
-            nom="Messagerie et Communications Omnicanales"
-            entete="bg-gradient-to-r from-sky-700/70 to-sky-900/40 text-sky-100"
-            bord="border-sky-500/40"
-            accent="text-sky-300"
-            modules={D31}
-          />
-          <PanneauDomaine
-            numero="3.2"
-            nom="Voix, VoIP et Radio Web"
-            entete="bg-gradient-to-r from-violet-700/70 to-violet-900/40 text-violet-100"
-            bord="border-violet-500/40"
-            accent="text-violet-300"
-            modules={D32}
-          />
-        </div>
-
-        {/* Colonne centrale : titre + architecture + moteurs + données + sécurité */}
-        <div className="flex flex-col gap-3">
-          {/* Titre */}
-          <header className="text-center pt-1">
-            <h1 className="text-3xl md:text-[40px] leading-tight font-extrabold text-white tracking-tight drop-shadow-[0_0_25px_rgba(56,189,248,0.35)]">
-              PLATEFORME OMNICOMM 360°
-            </h1>
-            <h2 className="text-2xl md:text-[32px] font-extrabold titre-degrade">COMMUNICATION COMPLÈTE</h2>
-            <p className="mt-2 text-[13px] font-bold text-slate-200 tracking-wide">
-              API COMPLÈTE DE COMMUNICATIONS • VOIX • MESSAGES • IoT • RADIO WEB • MVNO
-            </p>
-            <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
-              {BADGES.map((b) => (
-                <span key={b} className="text-[11px] font-bold px-3 py-1 rounded-lg border border-violet-400/60 bg-violet-800/40 text-violet-100">
-                  {b}
-                </span>
-              ))}
-            </div>
-          </header>
-
-          {/* Architecture : canaux → cœur → sorties */}
-          <div className="grid grid-cols-[112px_1fr_150px] gap-2 items-stretch flex-1">
-            {/* Canaux entrants */}
-            <div className="flex flex-col gap-1.5 justify-center">
-              {CANAUX.map((c) => (
-                <div key={c.nom} className="flex items-center gap-1.5 rounded-lg border border-[#233457] bg-[#0a1226]/90 px-2 py-1.5">
-                  <span className="text-sm">{c.icone}</span>
-                  <span className="text-[10.5px] font-semibold text-slate-200 leading-tight">{c.nom}</span>
-                  <span className="ml-auto text-sky-400 text-[10px]">→</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Cœur de la plateforme (cloud + racks) */}
-            <div className="relative rounded-2xl border border-sky-400/50 bg-gradient-to-b from-[#0e2250] via-[#0a1a3e] to-[#081226] p-4 shadow-[0_0_45px_rgba(37,99,235,0.3)] flex flex-col justify-center">
-              <div className="absolute inset-x-8 -top-px h-px bg-gradient-to-r from-transparent via-sky-300/80 to-transparent" />
-              <div className="text-center">
-                <div className="text-lg md:text-xl font-extrabold text-white tracking-wide">☁️ PLATEFORME OMNICOMM 360°</div>
-                <div className="text-[12px] font-bold text-sky-300 mt-0.5 tracking-widest">CŒUR DE LA PLATEFORME</div>
-              </div>
-              <RackServeurs />
-              <div className="mt-3 flex justify-center">
-                <span className="text-sky-400 text-lg">▼</span>
-              </div>
-            </div>
-
-            {/* Sorties */}
-            <div className="flex flex-col gap-1.5 justify-center">
-              {SORTIES.map((s) => (
-                <div key={s.nom} className="flex items-center gap-1.5 rounded-lg border border-[#233457] bg-[#0a1226]/90 px-2 py-1.5">
-                  <span className="text-[10px] text-sky-400">→</span>
-                  <span className="text-sm">{s.icone}</span>
-                  <span className="text-[10.5px] font-semibold text-slate-200 leading-tight">{s.nom}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Les 5 moteurs */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            {MOTEURS.map((m) => (
-              <div key={m.nom.join(" ")} className={`rounded-xl border bg-[#0a1226]/90 px-2 py-2.5 text-center ${m.couleur} ${m.lueur}`}>
-                <div className="text-xl">{m.icone}</div>
-                <div className="text-[10px] font-extrabold leading-tight mt-1">
-                  {m.nom[0]}
-                  <br />
-                  {m.nom[1]}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Couche de données */}
-          <div className="rounded-xl border border-[#233457] bg-[#0a1226]/70 p-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-            {COUCHE_DONNEES.map((d) => (
-              <div key={d.nom} className="flex items-center justify-center gap-1.5 rounded-lg border border-[#233457] bg-[#0b1430] px-2 py-2">
-                <span className="text-sm">{d.icone}</span>
-                <span className="text-[10px] font-bold text-slate-200 leading-tight">{d.nom}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Sécurité & conformité */}
-          <div className="rounded-xl border border-emerald-500/40 bg-[#0a1226]/70 p-3">
-            <div className="text-center text-[12px] font-extrabold text-emerald-200 tracking-wide mb-2">
-              🛡️ SÉCURITÉ & CONFORMITÉ
-            </div>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-              {SECURITE.map((s) => (
-                <div key={s.nom} className="rounded-lg border border-[#233457] bg-[#0b1430] px-1.5 py-2 text-center">
-                  <div className="text-lg">{s.icone}</div>
-                  <div className="text-[10px] font-semibold text-slate-200 leading-tight mt-1">{s.nom}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Colonne droite : 3.3 + 3.4 + 3.5 */}
-        <div className="space-y-3">
-          <PanneauDomaine
-            numero="3.3"
-            nom="Connectivité & IoT (AgriTech/Minier)"
-            entete="bg-gradient-to-r from-emerald-700/70 to-emerald-900/40 text-emerald-100"
-            bord="border-emerald-500/40"
-            accent="text-emerald-300"
-            modules={D33}
-          />
-          <PanneauDomaine
-            numero="3.4"
-            nom="Portail Dév. & Administration (BSS/OSS)"
-            entete="bg-gradient-to-r from-amber-600/70 to-amber-900/40 text-amber-100"
-            bord="border-amber-500/40"
-            accent="text-amber-300"
-            modules={D34}
-          />
-          <PanneauDomaine
-            numero="3.5"
-            nom="Surveillance & Conformité"
-            entete="bg-gradient-to-r from-cyan-700/70 to-cyan-900/40 text-cyan-100"
-            bord="border-cyan-500/40"
-            accent="text-cyan-300"
-            modules={D35}
-          />
-        </div>
-      </div>
-
-      {/* ===== Rangée du bas : Expérience dév / Flux / Cas d'utilisation ===== */}
-      <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr_300px] gap-3 mt-3">
-        <section className="rounded-xl border border-[#233457] bg-[#0b1430]/80 p-3">
-          <h3 className="text-[12px] font-extrabold text-white tracking-wide text-center mb-2.5">EXPÉRIENCE DÉVELOPPEUR</h3>
-          <div className="grid grid-cols-5 gap-1.5">
-            {EXP_DEV.map((e) => (
-              <div key={e.nom} className="text-center">
-                <div className="mx-auto h-11 w-11 rounded-lg border border-[#233457] bg-[#0a1226] flex items-center justify-center text-lg">
-                  {e.icone}
-                </div>
-                <div className="text-[8.5px] font-bold text-slate-300 leading-tight mt-1">{e.nom}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-[#233457] bg-[#0b1430]/80 p-3">
-          <h3 className="text-[12px] font-extrabold text-white tracking-wide text-center mb-2.5">FLUX D&apos;UTILISATION (EXEMPLE)</h3>
-          <div className="flex items-center justify-between gap-1 overflow-x-auto">
-            {FLUX.map((f, i) => (
-              <div key={f.nom} className="flex items-center gap-1 shrink-0">
-                <div className="text-center w-[92px]">
-                  <div
-                    className={`mx-auto h-11 w-11 rounded-full border flex items-center justify-center text-lg ${
-                      i === 3 ? "border-sky-400/70 bg-sky-900/50 shadow-[0_0_16px_rgba(56,189,248,0.4)]" : "border-[#233457] bg-[#0a1226]"
-                    }`}
-                  >
-                    {f.icone}
-                  </div>
-                  <div className="text-[8.5px] font-bold text-slate-300 leading-tight mt-1">{f.nom}</div>
-                </div>
-                {i < FLUX.length - 1 && <span className="text-sky-400 text-sm shrink-0">→</span>}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-[#233457] bg-[#0b1430]/80 p-3">
-          <h3 className="text-[12px] font-extrabold text-white tracking-wide text-center mb-2.5">CAS D&apos;UTILISATION</h3>
-          <div className="grid grid-cols-3 gap-1.5">
-            {CAS.map((c) => (
-              <div key={c.nom} className="text-center rounded-lg border border-[#233457] bg-[#0a1226] px-1 py-2">
-                <div className="text-lg">{c.icone}</div>
-                <div className="text-[9.5px] font-bold text-slate-300 leading-tight mt-0.5">{c.nom}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      {/* ===== Pied du mockup : garanties + slogan ===== */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-3 mt-3 items-stretch">
-        <div className="rounded-xl border border-[#233457] bg-[#0b1430]/80 px-4 py-3 flex flex-wrap items-center justify-center gap-x-7 gap-y-2">
-          {GARANTIES.map((g) => (
-            <span key={g} className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
-              <span className="text-emerald-400">✔</span> {g}
-            </span>
-          ))}
-        </div>
-        <div className="rounded-xl border-2 border-amber-500/70 bg-[#1a0f10] px-4 py-3 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.2)]">
-          <span className="text-amber-300 font-extrabold text-[13px] tracking-wide text-center">{SLOGAN}</span>
-        </div>
-      </div>
-
-      <p className="text-center text-[10px] text-slate-600 mt-3">
-        © 2026 Plateforme OmniComm 360° — Ing. Nzangi Adolphe & Rogerio Celestina Kabongo
-      </p>
-    </main>
-  );
+  </main>
 }
