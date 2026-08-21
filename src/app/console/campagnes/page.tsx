@@ -18,7 +18,7 @@ export default async function CampagnesPage() {
     rows = result.rows;
   } catch (error) {
     console.error("campagnes page database error", error);
-    dbError = "Impossible d’initialiser ou de joindre PostgreSQL. Vérifiez DATABASE_URL dans Vercel.");
+    dbError = "Impossible d’initialiser ou de joindre PostgreSQL. Vérifiez DATABASE_URL dans Vercel.";
   }
   return <section className="space-y-6">
     <div><div className="text-xs font-mono text-amber-400">GESTION COMMERCIALE</div><h1 className="text-3xl font-bold text-white">Campagnes</h1><p className="text-slate-400">Création, planification, suivi et historique des campagnes omnicanales.</p></div>
