@@ -4,112 +4,22 @@ import { useMemo, useState } from "react";
 import "./prd-generator.css";
 
 type Template = { slug: string; name: string; category: string; description: string; icon: string };
-type Analysis = { dimensions: string[]; modules: string[]; complexity: string; duration: string; team: string; score: number; recommendations: string[] };
-
-type FormState = {
-  name: string; description: string; problem: string; audience: string; features: string; constraints: string; details: string;
-};
+type Analysis = { dimensions: string[]; modules: string[]; complexity: string; duration: string; team: string; score: number; recommendations: string[]; gaps: string[] };
+type FormState = { name:string; description:string; problem:string; objective:string; audience:string; features:string; constraints:string; stack:string; integrations:string; compliance:string; level:string; details:string };
 
 const templates: Template[] = [
-  { slug: "music-ai", name: "Musique IA", category: "IA / Média", description: "Génération musicale professionnelle par IA", icon: "♫" },
-  { slug: "ai-ml", name: "IA & Machine Learning", category: "IA", description: "Produit IA, ML, chatbot ou recommandation", icon: "✦" },
-  { slug: "api-platform", name: "API Platform", category: "API", description: "API publique REST/GraphQL sécurisée", icon: "↗" },
-  { slug: "saas-cloud", name: "SaaS / Cloud", category: "Cloud", description: "Plateforme SaaS multi-tenant", icon: "☁" },
-  { slug: "payments", name: "Paiement & Abonnement", category: "Fintech", description: "Crédits, facturation et abonnements", icon: "¤" },
-  { slug: "streaming-media", name: "Streaming & Média", category: "Média", description: "Audio, vidéo, podcast et distribution", icon: "▶" },
-  { slug: "web", name: "Application Web", category: "Web", description: "SaaS, portail ou outil responsive", icon: "▣" },
-];
+  ["web","Application Web","Web","SaaS, portail, plateforme ou outil responsive","▣"], ["mobile","Application Mobile","Mobile","iOS, Android ou cross-platform","⌁"], ["design","Système de Design","Design","Design system, composants UI, brand guidelines","◈"], ["ecommerce","E-commerce","Commerce","Boutique, marketplace ou vente en ligne","◇"], ["analytics","Dashboard Analytics","Data","BI, reporting, monitoring et KPI","▥"], ["critical","Projet Critique / Sécurité","Critique","Santé, finance ou données sensibles","!"], ["backend","API & Backend","Backend","API REST/GraphQL et services backend","↗"], ["ai","IA & Machine Learning","IA","Produit IA, ML, chatbot ou recommandation","✦"], ["internal","Outil Interne / Back-office","Interne","Intranet, admin panel, outil métier","⌘"], ["iot","IoT & Objets Connectés","IoT","Capteurs, objets connectés, embarqué","⌁"], ["crm","CRM & Gestion","Business","CRM, ERP, gestion clients et processus","♙"], ["fintech","Fintech & Paiements","Finance","Banque digitale, wallet, paiements","¤"], ["health","Santé & Télémédecine","Santé","Dossier patient, télémédecine, e-santé","✚"], ["education","Éducation & E-learning","Education","LMS, MOOC, formation et académie","▤"], ["devops","DevOps & CI/CD","DevOps","Pipelines, infrastructure et déploiement","⇧"], ["telecom","Télécom & Connectivité","Télécom","VoIP, SMS, radio, connectivité","☎"], ["streaming","Streaming & Média","Média","VOD, audio, vidéo, créateurs","▶"], ["cyber","Cybersécurité & SIEM","Cyber","SOC, SIEM, threat intelligence, zero trust","⌁"], ["data","Data Platform & Big Data","Data","Data lake, warehouse, ETL, pipelines","◫"], ["cloud","Cloud & Infrastructure SaaS","Cloud","Multi-tenant SaaS, cloud management","☁"], ["documents","Gestion Documents & E-signature","Documents","DMS, signature, workflow et archivage","▧"], ["sport","Sport & Fitness","Sport","Fitness, coaching, clubs et réservation","◉"], ["gps","GPS, Localisation & Cartographie","Maps","GPS, maps, geocoding et tracking","⌖"], ["messaging","Plateforme de Messagerie","Communication","E-mail, chat, agenda, contacts, appels","✉"], ["video","Plateforme Vidéo","Vidéo","Hébergement, streaming et monétisation","▣"], ["short-video","Plateforme Vidéos Courtes","Social","Feed vertical, effets, création mobile","◉"], ["api-platform","Plateforme API REST / GraphQL","API","API publique, clés, quotas, SDK","↗"], ["music-ai","Génération Musicale Professionnelle","IA / Musique","Génération musicale IA et API","♫"], ["image-ai","Génération d'Images Professionnelle","IA / Image","Génération d'images IA","▧"], ["video-ai","Génération Vidéo Professionnelle","IA / Vidéo","Génération vidéo longue par IA","▶"], ["commercial-ai","Vidéo Commercial Professionnelle","IA / Marketing","Création vidéo commerciale IA","▣"], ["tech","Technologies Utilisées","Tech","FastAPI / PostgreSQL / SQLAlchemy / Swagger","⚙"]
+].map(([slug,name,category,description,icon])=>({slug,name,category,description,icon}));
 
-const defaultForm: FormState = {
-  name: "", description: "", problem: "", audience: "", features: "", constraints: "", details: "",
-};
+const defaultForm: FormState = { name:"", description:"", problem:"", objective:"", audience:"", features:"", constraints:"", stack:"React / Next.js, PostgreSQL Neon", integrations:"", compliance:"", level:"Production", details:"" };
 
-export default function PRDGeneratorPage() {
-  const [form, setForm] = useState<FormState>(defaultForm);
-  const [selected, setSelected] = useState<string[]>(["web"]);
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [prd, setPrd] = useState<any>(null);
-  const [message, setMessage] = useState("");
-
-  const featureChips = useMemo(() => form.features.split(/[,\n]/).map(s => s.trim()).filter(Boolean).slice(0, 12), [form.features]);
-  const update = (key: keyof FormState, value: string) => setForm(v => ({ ...v, [key]: value }));
-
-  async function analyze() {
-    if (!form.name.trim() || !form.problem.trim() || !form.audience.trim() || !form.features.trim()) {
-      setMessage("Complétez les 4 champs obligatoires avant l'analyse."); return;
-    }
-    setLoading(true); setMessage("");
-    try {
-      const res = await fetch("/api/prd", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "analyze", form, templates: selected }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Analyse impossible");
-      setAnalysis(data.analysis); setStep(2);
-    } catch (e: any) { setMessage(e.message); } finally { setLoading(false); }
-  }
-
-  async function generate() {
-    setLoading(true); setMessage("");
-    try {
-      const res = await fetch("/api/prd", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate", form, templates: selected, analysis }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Génération impossible");
-      setPrd(data.prd); setStep(3);
-    } catch (e: any) { setMessage(e.message); } finally { setLoading(false); }
-  }
-
-  return <main className="prd-shell">
-    <aside className="prd-sidebar">
-      <div className="prd-brand"><div className="prd-logo">P</div><div><strong>PRD</strong><span>Generator Pro</span></div></div>
-      <nav>
-        {["✦  Nouveau PRD", "▤  Mes PRD", "▦  Modèles", "▣  Bibliothèque", "◫  Versions", "♙  Équipe", "⚙  Paramètres", "↗  API & Intégrations", "?  Aide & Support"].map((item, i) => <button key={item} className={i === 0 ? "active" : ""}>{item}</button>)}
-      </nav>
-      <div className="sidebar-bottom"><div className="pro-card">♛ <strong>Upgrade Pro</strong><small>Fonctionnalités avancées</small></div><div className="user-card"><span>R</span><div><strong>Rogerio Team</strong><small>Administrateur</small></div></div></div>
-    </aside>
-
-    <section className="prd-content">
-      <header className="prd-header"><div><h1>Créer un nouveau PRD</h1><p>Transformez une idée en spécification produit professionnelle et prête à développer.</p></div><div className="steps"><span className={step >= 1 ? "current" : ""}>1 <b>Informations</b></span><i>—</i><span className={step >= 2 ? "current" : ""}>2 <b>Analyse IA</b></span><i>—</i><span className={step >= 3 ? "current" : ""}>3 <b>Génération PRD</b></span></div></header>
-
-      {message && <div className="alert">⚠ {message}</div>}
-
-      <div className="prd-grid">
-        <section className="form-card">
-          <div className="card-title"><div><h2>Informations essentielles</h2><p>Décrivez votre projet. Le moteur complète automatiquement les exigences manquantes.</p></div><span className="required">* Champs obligatoires</span></div>
-          <Field label="Nom du projet / fonctionnalité *" value={form.name} onChange={v => update("name", v)} placeholder="Ex. DEVARYX Music AI Studio" />
-          <Field label="Description du projet" value={form.description} onChange={v => update("description", v)} textarea placeholder="Décrivez brièvement le produit et sa vision." />
-          <Field label="Problème à résoudre *" value={form.problem} onChange={v => update("problem", v)} textarea placeholder="Quel problème concret le produit doit-il résoudre ?" />
-          <Field label="Public cible *" value={form.audience} onChange={v => update("audience", v)} textarea placeholder="Utilisateurs, entreprises, équipes, développeurs..." />
-          <Field label="Fonctionnalités clés *" value={form.features} onChange={v => update("features", v)} textarea placeholder="Séparez les fonctionnalités par virgules ou lignes." />
-          {featureChips.length > 0 && <div className="chips">{featureChips.map(c => <span key={c}>{c}</span>)}</div>}
-          <Field label="Contraintes techniques / métier" value={form.constraints} onChange={v => update("constraints", v)} textarea placeholder="Stack, PostgreSQL, sécurité, réglementation, APIs, performance..." />
-          <Field label="Détails additionnels" value={form.details} onChange={v => update("details", v)} textarea placeholder="Contexte supplémentaire que l'IA doit prendre en compte." />
-          <button className="primary" onClick={analyze} disabled={loading}>{loading && step === 1 ? "Analyse en cours…" : "✦  Analyser le projet avec l'IA"}</button>
-        </section>
-
-        <section className="right-stack">
-          <div className="templates-card">
-            <div className="card-title"><div><h2>Choisissez un modèle</h2><p>Vous pouvez combiner plusieurs modèles spécialisés.</p></div><span className="ai-badge">✦ Recommandations IA</span></div>
-            <div className="template-grid">{templates.map(t => <button key={t.slug} onClick={() => setSelected(s => s.includes(t.slug) ? s.filter(x => x !== t.slug) : [...s, t.slug])} className={`template ${selected.includes(t.slug) ? "selected" : ""}`}><div className="template-icon">{t.icon}</div><div><strong>{t.name}</strong><small>{t.description}</small></div><span className="check">{selected.includes(t.slug) ? "✓" : ""}</span></button>)}</div>
-            <div className="all-models">Voir tous les modèles (100+)</div>
-          </div>
-
-          <div className="analysis-card">
-            <div className="card-title"><div><h2>Analyse IA du projet</h2><p>{analysis ? "Analyse terminée — recommandations calculées." : "L'analyse apparaît ici après validation des informations."}</p></div><span className={analysis ? "success-badge" : "pending-badge"}>{analysis ? "✓ Analyse terminée" : "○ En attente"}</span></div>
-            {analysis ? <><div className="dimension-row">{analysis.dimensions.map(d => <span key={d}>{d}</span>)}</div><div className="metrics"><Metric title="Complexité estimée" value={analysis.complexity} danger={analysis.complexity === "Élevée"}/><Metric title="Durée estimée MVP" value={analysis.duration}/><Metric title="Équipe recommandée" value={analysis.team}/></div><div className="module-list"><strong>Modules détectés</strong><div>{analysis.modules.map(m => <span key={m}>◈ {m}</span>)}</div></div><div className="recommendations"><strong>Gaps et recommandations</strong>{analysis.recommendations.slice(0, 5).map(r => <p key={r}>✓ {r}</p>)}</div><button className="secondary" onClick={() => setStep(1)}>Modifier l'analyse</button></> : <div className="empty-analysis">Remplissez le formulaire puis cliquez sur <b>Analyser le projet avec l'IA</b>.</div>}
-          </div>
-        </section>
-      </div>
-
-      <section className="workflow"><h2>Notre processus en 4 étapes</h2><div className="workflow-grid"><Flow n="1" title="Analyse IA" text="Détection automatique du domaine, des besoins et des contraintes."/><Flow n="2" title="Génération" text="Création des sections, exigences, parcours et critères d'acceptation."/><Flow n="3" title="Revue & Personnalisation" text="Révisez, modifiez et régénérez les parties nécessaires."/><Flow n="4" title="Export & Partage" text="PDF, DOCX, Markdown, JSON et partage avec votre équipe."/></div></section>
-
-      <section className="cta"><div><span>🚀</span><div><h2>PRD professionnel prêt à l'emploi</h2><p>Une spécification structurée, testable et exploitable par votre équipe.</p></div></div><button className="primary" onClick={analysis ? generate : analyze} disabled={loading}>{loading ? "Génération…" : analysis ? "✦ Générer le PRD complet" : "✦ Analyser puis générer"}</button></section>
-
-      {prd && <section className="prd-result"><div className="result-head"><div><span className="success-badge">✓ PRD généré</span><h2>{prd.title}</h2><p>Version {prd.version} · Score qualité {prd.qualityScore}/100 · {prd.sections.length} sections</p></div><button className="secondary" onClick={() => navigator.clipboard.writeText(JSON.stringify(prd, null, 2))}>Copier le PRD JSON</button></div><div className="section-list">{prd.sections.map((s: any, i: number) => <article key={s.id}><span>{String(i + 1).padStart(2, "0")}</span><div><h3>{s.title}</h3><p>{s.content}</p></div></article>)}</div></section>}
-    </section>
-  </main>;
-}
-
-function Field({ label, value, onChange, placeholder, textarea = false }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; textarea?: boolean }) { return <label className="field"><span>{label}</span>{textarea ? <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3}/> : <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}/>}</label>; }
-function Metric({ title, value, danger = false }: { title: string; value: string; danger?: boolean }) { return <div className="metric"><small>{title}</small><strong className={danger ? "danger" : ""}>{value}</strong></div>; }
-function Flow({ n, title, text }: { n: string; title: string; text: string }) { return <div className="flow"><b>{n}</b><div><strong>{title}</strong><p>{text}</p></div></div>; }
+export default function PRDNextBeginPage(){
+ const [form,setForm]=useState<FormState>(defaultForm),[selected,setSelected]=useState<string[]>(["web"]),[step,setStep]=useState(1),[loading,setLoading]=useState(false),[analysis,setAnalysis]=useState<Analysis|null>(null),[prd,setPrd]=useState<any>(null),[tab,setTab]=useState("form"),[message,setMessage]=useState("");
+ const chips=useMemo(()=>form.features.split(/[,\n]/).map(x=>x.trim()).filter(Boolean).slice(0,16),[form.features]);
+ const update=(k:keyof FormState,v:string)=>setForm(x=>({...x,[k]:v}));
+ async function call(action:string){setLoading(true);setMessage("");try{const r=await fetch("/api/prd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,form,templates:selected,analysis})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Opération impossible");if(action==="analyze"){setAnalysis(d.analysis);setStep(2);setTab("analysis")}else{setPrd(d.prd);setStep(4);setTab("result")}}catch(e:any){setMessage(e.message)}finally{setLoading(false)}}
+ return <main className="nb-shell"><aside className="nb-sidebar"><div className="nb-brand"><div className="nb-logo">N</div><div><b>PRD NEXTBEGIN</b><small>AI Product Engineering</small></div></div><nav>{[["form","✦ Nouveau PRD"],["projects","▤ Mes PRD"],["templates","▦ Modèles"],["library","▣ Bibliothèque"],["versions","◫ Versions"],["team","♙ Équipe"],["api","↗ API & Intégrations"],["settings","⚙ Paramètres"],["help","? Aide & Support"]].map(([id,label])=><button className={tab===id?"active":""} key={id} onClick={()=>setTab(id)}>{label}</button>)}</nav><div className="nb-bottom"><div className="nb-pro"><b>✦ Engineering Mode</b><small>PRD → Architecture → QA → Production</small></div><div className="nb-user"><span>R</span><div><b>Rogerio Team</b><small>Administrateur</small></div></div></div></aside><section className="nb-main"><header className="nb-header"><div><div className="eyebrow">PRODUCT ENGINEERING PLATFORM</div><h1>Créer un nouveau PRD</h1><p>Transformez une idée en spécification professionnelle, testable et prête à développer.</p></div><div className="nb-steps">{[[1,"Informations"],[2,"Analyse IA"],[3,"Génération"],[4,"Review & Export"]].map(([n,t])=><div className={step>=Number(n)?"done":""} key={String(n)}><span>{step>Number(n)?"✓":n}</span><b>{t}</b></div>)}</div></header>{message&&<div className="nb-alert">⚠ {message}</div>}<div className="nb-toolbar"><button className={tab==="form"?"on":""} onClick={()=>setTab("form")}>1 · Informations</button><button className={tab==="analysis"?"on":""} onClick={()=>analysis&&setTab("analysis")}>2 · Analyse</button><button className={tab==="result"?"on":""} onClick={()=>prd&&setTab("result")}>3 · PRD complet</button><span>{selected.length} modèle(s) · {form.level}</span></div>{tab==="form"&&<><div className="nb-grid"><section className="nb-card"><div className="nb-cardhead"><div><h2>Informations essentielles</h2><p>Le moteur complète automatiquement ce que vous n'avez pas encore défini.</p></div><em>* Obligatoire</em></div><Field label="Nom du projet / fonctionnalité *" value={form.name} onChange={v=>update("name",v)} placeholder="Ex. PRD NEXTBEGIN"/><Field label="Description du projet" value={form.description} onChange={v=>update("description",v)} textarea placeholder="Vision, proposition de valeur, contexte…"/><Field label="Problème à résoudre *" value={form.problem} onChange={v=>update("problem",v)} textarea placeholder="Quel problème concret doit être résolu ?"/><div className="two"><Field label="Objectif principal" value={form.objective} onChange={v=>update("objective",v)} placeholder="Résultat attendu"/><Field label="Public cible *" value={form.audience} onChange={v=>update("audience",v)} placeholder="Personas, équipes, entreprises"/></div><Field label="Fonctionnalités clés *" value={form.features} onChange={v=>update("features",v)} textarea placeholder="Une fonctionnalité par ligne ou séparée par virgules"/>{chips.length>0&&<div className="nb-chips">{chips.map(x=><span key={x}>{x}</span>)}</div>}<Field label="Contraintes techniques / métier" value={form.constraints} onChange={v=>update("constraints",v)} textarea placeholder="Sécurité, performance, réglementation, offline, SLA…"/><div className="two"><Field label="Stack souhaitée" value={form.stack} onChange={v=>update("stack",v)} placeholder="React, Next.js, PostgreSQL…"/><Field label="Intégrations / APIs" value={form.integrations} onChange={v=>update("integrations",v)} placeholder="Stripe, OpenAI, Twilio…"/></div><div className="two"><Field label="Conformité / sécurité" value={form.compliance} onChange={v=>update("compliance",v)} placeholder="RGPD, HIPAA, PCI-DSS…"/><label className="field"><span>Niveau attendu</span><select value={form.level} onChange={e=>update("level",e.target.value)}><option>MVP</option><option>Production</option><option>Enterprise</option><option>Mission critique</option></select></label></div><Field label="Détails additionnels" value={form.details} onChange={v=>update("details",v)} textarea placeholder="Tout contexte supplémentaire à prendre en compte."/><button className="nb-primary" onClick={()=>call("analyze")} disabled={loading}>{loading?"Analyse en cours…":"✦ Analyser le projet avec l'IA"}</button></section><section className="nb-card nb-models"><div className="nb-cardhead"><div><h2>Choisissez un modèle</h2><p>Plusieurs modèles peuvent être combinés. L'IA peut en recommander d'autres.</p></div><span className="nb-ai">✦ Recommandations IA</span></div><div className="model-grid">{templates.map(t=><button key={t.slug} className={selected.includes(t.slug)?"model selected":"model"} onClick={()=>setSelected(s=>s.includes(t.slug)?s.filter(x=>x!==t.slug):[...s,t.slug])}><i>{t.icon}</i><div><b>{t.name}</b><small>{t.description}</small><label>{t.category}</label></div><strong>{selected.includes(t.slug)?"✓":"+"}</strong></button>)}</div><div className="model-footer">{selected.length} sélectionné(s) · catalogue extensible · modèles système + personnalisés</div></section></div><section className="nb-card process"><h2>Le workflow PRD NEXTBEGIN</h2><div className="process-grid">{[["01","Analyse IA","Domaine, besoins, contraintes et gaps"],["02","Génération","55 sections professionnelles et traçabilité"],["03","Quality Gate","Cohérence, sécurité, QA et acceptance"],["04","Engineering","Architecture, DB, API, backlog et production"]].map(x=><div key={x[0]}><b>{x[0]}</b><strong>{x[1]}</strong><p>{x[2]}</p></div>)}</div></section><section className="nb-cta"><div><b>🚀 PRD professionnel prêt à construire</b><span>Idea → PRD → Architecture → QA → Production</span></div><button onClick={()=>call(analysis?"generate":"analyze")} disabled={loading}>{loading?"Traitement…":analysis?"Générer le PRD complet":"Analyser maintenant"}</button></section></>}{tab==="analysis"&&analysis&&<AnalysisView analysis={analysis} onBack={()=>setTab("form")} onGenerate={()=>call("generate")} loading={loading}/>} {tab==="result"&&prd&&<PRDView prd={prd}/>} {!["form","analysis","result"].includes(tab)&&<section className="nb-card placeholder"><div className="bigicon">✦</div><h2>{tab==="projects"?"Mes PRD":tab==="templates"?"Bibliothèque de modèles":tab==="versions"?"Versions":tab==="team"?"Équipe":tab==="api"?"API & Intégrations":tab==="settings"?"Paramètres":"Centre d'aide"}</h2><p>Module intégré au même projet, à Neon PostgreSQL et au workflow GitHub/Vercel.</p><button className="nb-primary" onClick={()=>setTab("form")}>Créer un nouveau PRD</button></section>}</section></main>}
+function Field({label,value,onChange,placeholder,textarea=false}:{label:string;value:string;onChange:(v:string)=>void;placeholder:string;textarea?:boolean}){return <label className="field"><span>{label}</span>{textarea?<textarea rows={3} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>:<input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>}</label>}
+function AnalysisView({analysis,onBack,onGenerate,loading}:{analysis:Analysis;onBack:()=>void;onGenerate:()=>void;loading:boolean}){return <section className="analysis-page"><div className="nb-card"><div className="analysis-top"><div><span className="nb-success">✓ Analyse terminée</span><h2>Analyse intelligente du projet</h2><p>Le moteur a croisé les modèles sélectionnés, vos besoins et les contraintes déclarées.</p></div><div className="score"><b>{analysis.score}</b><small>/100<br/>Quality Score</small></div></div><div className="dimensions">{analysis.dimensions.map(x=><span key={x}>{x}</span>)}</div><div className="metrics"><Metric t="Complexité" v={analysis.complexity}/><Metric t="MVP estimé" v={analysis.duration}/><Metric t="Équipe" v={analysis.team}/><Metric t="Gaps détectés" v={String(analysis.gaps.length)}/></div><div className="analysis-columns"><div><h3>Modules détectés</h3><div className="module-pills">{analysis.modules.map(x=><span key={x}>◈ {x}</span>)}</div></div><div><h3>Gaps & recommandations</h3>{[...analysis.gaps,...analysis.recommendations].slice(0,8).map(x=><p className="rec" key={x}>✓ {x}</p>)}</div></div><div className="actions"><button className="nb-secondary" onClick={onBack}>← Modifier</button><button className="nb-primary" onClick={onGenerate} disabled={loading}>{loading?"Génération…":"✦ Générer les 55 sections"}</button></div></div></section>}
+function Metric({t,v}:{t:string;v:string}){return <div className="metric"><small>{t}</small><b>{v}</b></div>}
+function PRDView({prd}:{prd:any}){return <section className="prd-view"><div className="nb-card"><div className="prd-view-head"><div><span className="nb-success">✓ PRD généré · v{prd.version}</span><h2>{prd.title}</h2><p>{prd.sections.length} sections · Quality Score {prd.qualityScore}/100 · {prd.templates.length} modèles</p></div><div className="export-row"><button onClick={()=>navigator.clipboard.writeText(JSON.stringify(prd,null,2))}>Copier JSON</button><button onClick={()=>window.print()}>Imprimer / PDF</button></div></div><div className="prd-toc">{prd.sections.map((s:any,i:number)=><a href={`#${s.id}`} key={s.id}>{String(i+1).padStart(2,"0")} {s.title}</a>)}</div><div className="prd-sections">{prd.sections.map((s:any,i:number)=><article id={s.id} key={s.id}><div className="section-num">{String(i+1).padStart(2,"0")}</div><div><h3>{s.title}</h3><p>{s.content}</p></div></article>)}</div></div></section>}
