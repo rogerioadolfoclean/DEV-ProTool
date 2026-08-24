@@ -23,8 +23,12 @@ const pool = new Pool({ connectionString: url });
       outcome VARCHAR(40),
       intent VARCHAR(60),
       started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      answered_at TIMESTAMPTZ,
+      ended_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE calls ADD COLUMN IF NOT EXISTS answered_at TIMESTAMPTZ;
+    ALTER TABLE calls ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS idx_calls_client ON calls(client_id);
     CREATE INDEX IF NOT EXISTS idx_calls_started ON calls(started_at DESC);
   `);
