@@ -1,5 +1,5 @@
 import { pool } from "@/lib/db";
-import { twiml, voiceBase } from "@/lib/ivr";
+import { twiml, voiceBase, momentDuJour } from "@/lib/ivr";
 import { dire } from "@/lib/ivr-langues";
 import { generateAiText, normalizeAiProvider } from "@/lib/ai-provider";
 
@@ -50,8 +50,10 @@ export async function POST(req: Request): Promise<Response> {
     } catch { /* ignore */ }
   }
 
+  const { salut, moment, heure } = momentDuJour();
   const prompt =
-    (histo ? `Conversation jusqu'ici:\n${histo}\n` : "") +
+    `Contexte: il est ${heure}, nous sommes ${moment}. Salue en respectant ce moment (matin: Bonjour ; apres-midi: Bon apres-midi ; soir ou nuit: Bonsoir), comme un humain, uniquement au premier echange.\n` +
+    (histo ? `Conversation jusqu'ici:\n${histo}\n` : `Salutation adaptee attendue: "${salut}".\n`) +
     `Le client vient de dire: "${speech}".\n` +
     `Donne UNIQUEMENT ta reponse orale (une phrase courte, sans prefixe).`;
 
