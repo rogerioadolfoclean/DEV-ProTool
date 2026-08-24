@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const SYSTEME =
   "Tu es l'assistant vocal telephonique d'OmniComm 360, plateforme de communication (SMS, WhatsApp, appels vocaux, IoT, radio web) en RDC et en Afrique. " +
   "Tu PARLES au telephone. Regles STRICTES: reponds en francais, en UNE seule phrase courte et naturelle (maximum 25 mots), sans liste, sans puces, sans symboles, sans emoji, sans saut de ligne. " +
-  "Donne une information utile ou pose une question pour aider. N'invente jamais de prix ni de delais. Si tu ne sais pas, propose de laisser un message.";
+  "Donne une information utile ou pose une question pour aider. Reponds TOUJOURS a la demande du client: s'il salue, salue en un mot puis reponds a sa question dans la meme phrase, ne te contente jamais de dire seulement bonjour. N'invente jamais de prix ni de delais. Si tu ne sais pas, propose de laisser un message.";
 
 const AUREVOIR = /\b(au revoir|c'?est tout|merci beaucoup|termine|termin[eé]|raccroch|au-revoir|bye|tchao|adieu)\b/i;
 
@@ -57,7 +57,7 @@ export async function POST(req: Request): Promise<Response> {
 
   let reponse = "";
   try {
-    const out = await generateAiText({ provider: normalizeAiProvider("gemini"), system: SYSTEME, prompt, maxTokens: 90 });
+    const out = await generateAiText({ provider: normalizeAiProvider("gemini"), system: SYSTEME, prompt, maxTokens: 512 });
     reponse = pourLaVoix(out.text || "");
   } catch { reponse = ""; }
   if (!reponse) reponse = "Pouvez-vous preciser votre demande, ou souhaitez-vous laisser un message ?";
