@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { pool } from "@/lib/db";
+import { urlBase } from "@/lib/gateway";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,8 @@ export async function POST(req: Request) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const from = process.env.TWILIO_PHONE_NUMBER;
-    const appUrl = process.env.APP_URL;
-    if (!accountSid || !authToken || !from || !appUrl) {
-      return NextResponse.json({ error: "Téléphonie non configurée. Vérifiez TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER et APP_URL dans Vercel." }, { status: 503 });
+    if (!accountSid || !authToken || !from) {
+      return NextResponse.json({ error: "Téléphonie non configurée. Vérifiez TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN et TWILIO_PHONE_NUMBER dans Vercel." }, { status: 503 });
     }
 
     const result = await pool.query(`SELECT id,name,phone,city,country,status FROM clients WHERE id=$1`, [clientId]);
@@ -23,8 +23,7 @@ export async function POST(req: Request) {
     if (c.status !== "active") return NextResponse.json({ error: "Client non actif" }, { status: 409 });
     if (!c.phone) return NextResponse.json({ error: "Numéro absent" }, { status: 422 });
 
-    const base = appUrl.replace(/\/$/, "");
-    const callbackBase = `${base}/api/voice`;
+    const callbackBase = `${urlBase()}/api/voice`;
     const call = await twilio(accountSid, authToken).calls.create({
       to: c.phone,
       from,

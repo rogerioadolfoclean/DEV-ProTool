@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { pool } from "@/lib/db";
+import { urlBase } from "@/lib/gateway";
 
 export const dynamic = "force-dynamic";
 
@@ -10,17 +11,17 @@ export async function POST(req: Request) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const from = process.env.TWILIO_PHONE_NUMBER;
-    const appUrl = process.env.APP_URL;
-    if (!accountSid || !authToken || !from || !appUrl) return NextResponse.json({ error: "Téléphonie non configurée. Ajoutez TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER et APP_URL." }, { status: 503 });
+    if (!accountSid || !authToken || !from) return NextResponse.json({ error: "Téléphonie non configurée. Ajoutez TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN et TWILIO_PHONE_NUMBER." }, { status: 503 });
     if (!clientId) return NextResponse.json({ error: "clientId requis" }, { status: 422 });
     const client = await pool.query(`SELECT id,name,phone FROM clients WHERE id=$1`, [clientId]);
     if (!client.rows[0]) return NextResponse.json({ error: "Client introuvable" }, { status: 404 });
+    const base = urlBase();
     const twilioClient = twilio(accountSid, authToken);
     const call = await twilioClient.calls.create({
       to: client.rows[0].phone,
       from,
-      url: `${appUrl.replace(/\/$/, "")}/api/voice/twiml?clientId=${clientId}&campaign=${encodeURIComponent(campaign)}`,
-      statusCallback: `${appUrl.replace(/\/$/, "")}/api/voice/status`,
+      url: `${base}/api/voice/twiml?clientId=${clientId}&campaign=${encodeURIComponent(campaign)}`,
+      statusCallback: `${base}/api/voice/status`,
       statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
       statusCallbackMethod: "POST",
       method: "POST",
