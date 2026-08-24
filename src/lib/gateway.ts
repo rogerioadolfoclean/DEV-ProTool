@@ -59,9 +59,11 @@ function identifiantsMeta() {
 }
 
 export function urlBase(): string {
+  // Alias PUBLIC stable requis pour les callbacks externes (Twilio TwiML/StatusCallback,
+  // webhooks Meta). VERCEL_URL est specifique au deploiement et protege -> inutilisable
+  // par un tiers, donc on ne l'utilise PAS ici.
   const explicite = process.env.APP_BASE_URL ?? process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
   if (explicite) return explicite.replace(/\/$/, "");
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "https://omnicomm-360.vercel.app";
 }
 
