@@ -57,7 +57,8 @@ export async function POST(req: Request): Promise<Response> {
 
   let reponse = "";
   try {
-    const out = await generateAiText({ provider: normalizeAiProvider("gemini"), system: SYSTEME, prompt, maxTokens: 512 });
+    // Claude par defaut (qualite) ; basculable via IVR_AI_PROVIDER=gemini (gratuit).
+    const out = await generateAiText({ provider: normalizeAiProvider(process.env.IVR_AI_PROVIDER || "claude"), system: SYSTEME, prompt, maxTokens: 300 });
     reponse = pourLaVoix(out.text || "");
   } catch { reponse = ""; }
   if (!reponse) reponse = "Pouvez-vous preciser votre demande, ou souhaitez-vous laisser un message ?";
