@@ -1,7 +1,16 @@
 "use client";
 import { useState } from "react";
 
-type Plan = { id: number; nom: string; type: string; prix_mensuel: string; inclus: Record<string, number> | null };
+type Plan = { id: number; nom: string; type: string; prix_mensuel: string; inclus: Record<string, number | boolean> | null };
+
+const LABELS: Record<string, string> = { sms: "SMS", emails: "e-mails", voix_min: "min de voix", sims: "SIM IoT", numeros: "numéros", white_label: "marque blanche" };
+
+function ligneInclus(cle: string, valeur: number | boolean): string {
+  const label = LABELS[cle] || cle.replace(/_/g, " ");
+  if (typeof valeur === "boolean") return valeur ? `${label} incluse` : `${label} non incluse`;
+  if (valeur < 0) return `${label} illimités`;
+  return `${valeur.toLocaleString("fr-FR")} ${label}`;
+}
 
 export default function PlansStripe({ plans, stripeActif }: { plans: Plan[]; stripeActif: boolean }) {
   const [busy, setBusy] = useState<number | null>(null);
@@ -40,7 +49,7 @@ export default function PlansStripe({ plans, stripeActif }: { plans: Plan[]; str
               <div className="mt-1 text-2xl font-bold text-white">{prix <= 0 ? "Gratuit" : `${prix.toFixed(0)} $`}<span className="text-xs font-normal text-slate-500">{prix > 0 ? " /mois" : ""}</span></div>
               {p.inclus && (
                 <ul className="mt-3 space-y-1 text-xs text-slate-400 flex-1">
-                  {Object.entries(p.inclus).map(([k, v]) => <li key={k}>✓ {v.toLocaleString("fr-FR")} {k.replace("_", " ")}</li>)}
+                  {Object.entries(p.inclus).map(([k, v]) => <li key={k}>✓ {ligneInclus(k, v)}</li>)}
                 </ul>
               )}
               <button onClick={() => souscrire(p.id)} disabled={busy === p.id} className="mt-4 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 px-4 py-2.5 text-sm font-bold text-white transition">
