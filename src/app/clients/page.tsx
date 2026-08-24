@@ -73,7 +73,7 @@ export default function ClientsPage(){
       <input className={`${inputCls} pl-8`} placeholder="Rechercher par nom, téléphone, e-mail…" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()}/>
      </div>
      <button onClick={()=>load()} className="rounded-lg bg-sky-600 hover:bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition">Rechercher</button>
-     <a href="/api/export/calls" className="rounded-lg border border-[#1c2a4a] hover:bg-white/5 px-4 py-2.5 text-sm text-slate-300 transition">⭳ CSV appels</a>
+     <a href="/api/export/clients" className="rounded-lg border border-[#1c2a4a] hover:bg-white/5 px-4 py-2.5 text-sm text-slate-300 transition">⭳ Export CSV</a>
     </div>
     <div className="overflow-x-auto">
      <table className="w-full text-sm">
