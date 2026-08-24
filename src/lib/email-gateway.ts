@@ -7,8 +7,10 @@ export type ResultatEmail =
 /** E-mail transactionnel réel via API HTTP. Aucun secret côté navigateur. */
 export async function envoyerEmail(de: string, vers: string, sujet: string, contenu: string): Promise<ResultatEmail> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? de;
-  if (!apiKey || !from) return { mode: "demo", raison: "RESEND_API_KEY / EMAIL_FROM absents — aucun e-mail physique" };
+  // EMAIL_FROM si defini ; sinon expediteur de test Resend (fonctionne sans domaine verifie,
+  // envoie vers l'e-mail du compte Resend). Le "de" du formulaire n'est qu'un libelle, pas un e-mail.
+  const from = process.env.EMAIL_FROM || "OmniComm 360 <onboarding@resend.dev>";
+  if (!apiKey) return { mode: "demo", raison: "RESEND_API_KEY absent — aucun e-mail physique" };
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
