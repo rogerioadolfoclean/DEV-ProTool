@@ -1,9 +1,12 @@
 import { pool } from "@/lib/db";
 import { Carte, CarteStat, EnTetePage, BadgeStatut, Tableau } from "@/components/ui";
+import PlansStripe from "@/components/plans-stripe";
+import { stripeConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
 
 export default async function PageFacturation() {
+  const plansRes = await pool.query(`SELECT id, nom, type, prix_mensuel, inclus FROM plans_tarifaires WHERE actif=true ORDER BY prix_mensuel`);
   const [usage, factures, abos] = await Promise.all([
     pool.query(`SELECT u.service, u.unite, SUM(u.quantite) AS quantite, SUM(u.cout)::numeric(12,2) AS cout
       FROM compteurs_usage u WHERE u.periode = '2026-07' GROUP BY u.service, u.unite ORDER BY cout DESC`),
@@ -29,6 +32,8 @@ export default async function PageFacturation() {
         <CarteStat libelle="Factures émises" valeur={factures.rows.length} couleur="sky" />
         <CarteStat libelle="En retard de paiement" valeur={enRetard.length} couleur="cyan" />
       </div>
+
+      <PlansStripe plans={plansRes.rows} stripeActif={stripeConfigured()} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <Carte>
