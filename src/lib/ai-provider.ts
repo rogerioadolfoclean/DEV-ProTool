@@ -22,7 +22,7 @@ export type AiProvider =
 export const DEFAULT_AI_PROVIDER: AiProvider = "claude";
 
 export const AI_MODELS: Record<AiProvider, string> = {
-  claude: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
+  claude: process.env.ANTHROPIC_MODEL || "claude-sonnet-5",
   openai: process.env.OPENAI_MODEL || "gpt-5.6",
   deepseek: process.env.DEEPSEEK_MODEL || "deepseek-chat",
   gemini: process.env.GEMINI_MODEL || "gemini-3.6-flash",
