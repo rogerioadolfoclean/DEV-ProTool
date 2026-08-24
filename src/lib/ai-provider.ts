@@ -103,7 +103,18 @@ export async function generateAiText({
     });
     if (!r.ok) throw new Error(`OpenAI ${r.status}: ${(await r.text()).slice(0, 500)}`);
     const d = await r.json();
-    return { provider: selected, model: AI_MODELS.openai, text: d.output_text ?? "" };
+    // La Responses API renvoie soit output_text (raccourci), soit output[].content[].text
+    const text: string =
+      typeof d.output_text === "string" && d.output_text
+        ? d.output_text
+        : Array.isArray(d.output)
+          ? d.output
+              .flatMap((o: { content?: { type?: string; text?: string }[] }) => o.content ?? [])
+              .filter((c: { type?: string; text?: string }) => c.text)
+              .map((c: { text?: string }) => c.text ?? "")
+              .join("\n")
+          : "";
+    return { provider: selected, model: AI_MODELS.openai, text };
   }
 
   if (selected === "deepseek") {
