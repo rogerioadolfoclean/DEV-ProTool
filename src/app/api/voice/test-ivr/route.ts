@@ -26,11 +26,14 @@ export async function POST(req: Request) {
     }
     if (!phone) return NextResponse.json({ error: "phone ou clientId requis" }, { status: 422 });
 
+    // mode "assistant" = dialogue IA conversationnel ; sinon IVR a menus.
+    const cible = body.mode === "assistant" ? "assistant" : "incoming";
+
     const base = urlBase();
     const call = await twilio(accountSid, authToken).calls.create({
       to: phone,
       from,
-      url: `${base}/api/voice/incoming`,   // <-- IVR d'accueil au decroche
+      url: `${base}/api/voice/${cible}`,   // <-- IVR ou assistant conversationnel au decroche
       statusCallback: `${base}/api/voice/status`,
       statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
       statusCallbackMethod: "POST",
