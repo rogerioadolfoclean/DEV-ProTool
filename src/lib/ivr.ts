@@ -3,9 +3,11 @@ import { urlBase } from "@/lib/gateway";
 // Configuration de l'IVR (accueil telephonique entrant) d'OmniComm 360°.
 export const IVR = {
   entreprise: "OmniComm 360",
-  // Numero du conseiller vers lequel rediriger l'option 1 (format E.164).
-  // Configurable via IVR_FORWARD_NUMBER dans Vercel ; sinon boite vocale.
-  numeroConseiller: () => process.env.IVR_FORWARD_NUMBER || "",
+  // Numero PRINCIPAL qui recoit les appels (option 1 "conseiller").
+  // Defaut = ligne maison de Rogerio (Rio) ; surchargeable via IVR_FORWARD_NUMBER.
+  numeroConseiller: () => process.env.IVR_FORWARD_NUMBER || "+552121473427",
+  // Numero de BASCULE si le principal ne repond pas ; surchargeable via IVR_FORWARD_FALLBACK.
+  numeroFailover: () => process.env.IVR_FORWARD_FALLBACK || "+5521990645151",
   langue: "fr-FR",
 };
 

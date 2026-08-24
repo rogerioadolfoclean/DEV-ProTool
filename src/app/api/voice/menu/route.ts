@@ -52,16 +52,13 @@ export async function POST(req: Request): Promise<Response> {
   let xml: string;
   switch (digit) {
     case "1": {
-      const conseiller = IVR.numeroConseiller();
-      if (conseiller) {
-        xml =
-          dire(lang, t(lang, "relation")) +
-          `<Dial timeout="25" callerId="${from}"><Number>${conseiller}</Number></Dial>` +
-          dire(lang, t(lang, "indispo")) +
-          boiteVocale(lang);
-      } else {
-        xml = dire(lang, t(lang, "indispo")) + boiteVocale(lang);
-      }
+      const principal = IVR.numeroConseiller();
+      const failover = IVR.numeroFailover();
+      let d = dire(lang, t(lang, "relation"));
+      // Sonne le numero principal (maison), puis bascule vers le secondaire (cellulaire).
+      if (principal) d += `<Dial timeout="20" callerId="${from}"><Number>${principal}</Number></Dial>`;
+      if (failover && failover !== principal) d += `<Dial timeout="20" callerId="${from}"><Number>${failover}</Number></Dial>`;
+      xml = d + dire(lang, t(lang, "indispo")) + boiteVocale(lang);
       break;
     }
     case "2":
