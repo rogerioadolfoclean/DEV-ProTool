@@ -2,6 +2,7 @@ import Link from "next/link";
 import { pool } from "@/lib/db";
 import { Carte, CarteStat, EnTetePage, BadgeStatut } from "@/components/ui";
 import { creerFlux, modifierFlux, supprimerFlux } from "./actions";
+import GenerateurMotPasse from "@/components/generateur-mot-passe";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function PageRadio({ searchParams }: { searchParams: Promis
           <label className="text-xs text-slate-400">Port<input name="port" type="number" defaultValue={e?.port ?? 80} placeholder="80" className={`mt-1 ${CH}`} /></label>
           <label className="text-xs text-slate-400">Point de montage (Mount)<input name="mount_point" defaultValue={e?.mount_point ?? ""} placeholder="2rhg5756d8zuv/source" className={`mt-1 ${CH}`} /></label>
           <label className="text-xs text-slate-400">Utilisateur<input name="username" defaultValue={e?.username ?? "source"} placeholder="source" className={`mt-1 ${CH}`} /></label>
-          <label className="text-xs text-slate-400">Mot de passe (Mount)<input name="mot_passe" defaultValue={e?.mot_passe ?? ""} placeholder="••••••" className={`mt-1 ${CH}`} /></label>
+          <label className="text-xs text-slate-400">Mot de passe (Mount) — 🔄 générer<GenerateurMotPasse name="mot_passe" defaultValue={e?.mot_passe ?? ""} /></label>
           <label className="text-xs text-slate-400">Encodage<select name="encodage" defaultValue={e?.encodage ?? "MP3"} className={`mt-1 ${CH}`}><option>MP3</option><option>AAC</option><option>OGG</option></select></label>
           <label className="text-xs text-slate-400">Bitrate (kbps)<input name="bitrate_kbps" type="number" defaultValue={e?.bitrate_kbps ?? 128} className={`mt-1 ${CH}`} /></label>
           <label className="text-xs text-slate-400">Statut<select name="statut" defaultValue={e?.statut ?? "en_ligne"} className={`mt-1 ${CH}`}><option value="en_ligne">En ligne</option><option value="hors_ligne">Hors ligne</option><option value="maintenance">Maintenance</option></select></label>
