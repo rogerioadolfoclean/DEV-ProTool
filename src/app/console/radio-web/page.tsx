@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { pool } from "@/lib/db";
+import { exigerSession } from "@/lib/auth";
 import { Carte, CarteStat, EnTetePage, BadgeStatut } from "@/components/ui";
 import { creerFlux, modifierFlux, supprimerFlux } from "./actions";
 import GenerateurMotPasse from "@/components/generateur-mot-passe";
@@ -12,8 +13,9 @@ const CH = "rounded-lg bg-[#050b18] border border-[#1c2a4a] px-3 py-2 text-white
 type Flux = { id: number; tenant: string; nom: string; type: string; protocole: string; url_flux: string; bitrate_kbps: number; auditeurs_actuels: number; auditeurs_pic: number; statut: string; serveur: string | null; port: number | null; mount_point: string | null; username: string | null; mot_passe: string | null; encodage: string | null };
 
 export default async function PageRadio({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
+  const s = await exigerSession();
   const editId = Number((await searchParams).edit) || 0;
-  const flux = await pool.query(`SELECT f.*, t.nom AS tenant FROM flux_streaming f JOIN tenants t ON t.id = f.tenant_id ORDER BY f.created_at DESC`);
+  const flux = await pool.query(`SELECT f.*, t.nom AS tenant FROM flux_streaming f JOIN tenants t ON t.id = f.tenant_id WHERE f.tenant_id = $1 ORDER BY f.created_at DESC`, [s.tenantId]);
   const rows = flux.rows as Flux[];
   const enLigne = rows.filter((f) => f.statut === "en_ligne");
   const auditeurs = enLigne.reduce((a, f) => a + f.auditeurs_actuels, 0);
