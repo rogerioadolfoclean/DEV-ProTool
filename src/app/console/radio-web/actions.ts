@@ -5,14 +5,24 @@ import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
 import { audit, exigerEcriture } from "@/lib/auth";
 
-// Construit une URL d'ecoute par defaut a partir du serveur + mount si non fournie.
-function urlEcoute(fournie: string, serveur: string, port: string, mount: string): string {
+// Construit une URL d'ecoute par defaut selon le PROTOCOLE (Icecast / Shoutcast / HLS).
+function urlEcoute(fournie: string, serveur: string, port: string, mount: string, protocole: string): string {
   if (fournie) return fournie.trim();
   if (!serveur) return "";
   const host = serveur.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  const p = port && port !== "80" ? `:${port}` : "";
-  const m = mount ? `/${mount.replace(/^\//, "").replace(/\/source$/, "")}` : "";
-  return `https://${host}${p}${m}`;
+  const proto = (protocole || "Icecast").toLowerCase();
+  const m = mount.replace(/^\//, "").replace(/\/source$/, "");
+
+  if (proto === "shoutcast") {
+    // Shoutcast : http, port souvent 8000 ; mount = Stream ID (v2) ou vide (v1).
+    const p = port ? `:${port}` : ":8000";
+    const chemin = m ? (/^\d+$/.test(m) ? `/stream/${m}` : `/${m}`) : "/;";
+    return `http://${host}${p}${chemin}`;
+  }
+  // Icecast / HLS : https, mount tel quel.
+  const p = port && port !== "80" && port !== "443" ? `:${port}` : "";
+  const chemin = m ? `/${m}` : "";
+  return `https://${host}${p}${chemin}`;
 }
 
 function lire(fd: FormData) {
@@ -36,7 +46,7 @@ export async function creerFlux(fd: FormData) {
   const s = await exigerEcriture();
   const d = lire(fd);
   if (!d.nom) throw new Error("Nom du flux obligatoire");
-  const url = urlEcoute(d.url, d.serveur, d.port, d.mount);
+  const url = urlEcoute(d.url, d.serveur, d.port, d.mount, d.protocole);
   const r = await pool.query(
     `INSERT INTO flux_streaming (tenant_id,nom,type,protocole,url_flux,bitrate_kbps,auditeurs_actuels,auditeurs_pic,statut,serveur,port,mount_point,username,mot_passe,encodage)
      VALUES ($1,$2,$3,$4,$5,$6,0,0,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
@@ -51,7 +61,7 @@ export async function modifierFlux(fd: FormData) {
   const id = Number(fd.get("id"));
   const d = lire(fd);
   if (!id || !d.nom) throw new Error("Paramètres invalides");
-  const url = urlEcoute(d.url, d.serveur, d.port, d.mount);
+  const url = urlEcoute(d.url, d.serveur, d.port, d.mount, d.protocole);
   const r = await pool.query(
     `UPDATE flux_streaming SET nom=$1,type=$2,protocole=$3,url_flux=$4,bitrate_kbps=$5,statut=$6,serveur=$7,port=$8,mount_point=$9,username=$10,mot_passe=$11,encodage=$12
      WHERE id=$13 AND tenant_id=$14 RETURNING id`,

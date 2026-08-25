@@ -43,7 +43,7 @@ export default async function PageRadio({ searchParams }: { searchParams: Promis
           <label className="text-xs text-slate-400">Protocole<select name="protocole" defaultValue={e?.protocole ?? "Icecast"} className={`mt-1 ${CH}`}><option>Icecast</option><option>HLS</option><option>Shoutcast</option></select></label>
           <label className="text-xs text-slate-400">Adresse serveur<input name="serveur" defaultValue={e?.serveur ?? ""} placeholder="link.zeno.fm" className={`mt-1 ${CH}`} /></label>
           <label className="text-xs text-slate-400">Port<input name="port" type="number" list="ports-stream" defaultValue={e?.port ?? 80} placeholder="80" className={`mt-1 ${CH}`} /><datalist id="ports-stream"><option value="80" /><option value="443" /><option value="8000" /><option value="8080" /><option value="8443" /></datalist></label>
-          <label className="text-xs text-slate-400">Point de montage (Mount)<input name="mount_point" defaultValue={e?.mount_point ?? ""} placeholder="2rhg5756d8zuv/source" className={`mt-1 ${CH}`} /></label>
+          <label className="text-xs text-slate-400">Mount (Icecast) / Stream ID (Shoutcast)<input name="mount_point" defaultValue={e?.mount_point ?? ""} placeholder="Icecast: /source · Shoutcast: 1" className={`mt-1 ${CH}`} /></label>
           <label className="text-xs text-slate-400">Utilisateur<input name="username" defaultValue={e?.username ?? "source"} placeholder="source" className={`mt-1 ${CH}`} /></label>
           <label className="text-xs text-slate-400">Mot de passe (Mount) — 🔄 générer<GenerateurMotPasse name="mot_passe" defaultValue={e?.mot_passe ?? ""} /></label>
           <label className="text-xs text-slate-400">Encodage<select name="encodage" defaultValue={e?.encodage ?? "MP3"} className={`mt-1 ${CH}`}><option>MP3</option><option>AAC</option><option>OGG</option></select></label>
@@ -52,7 +52,7 @@ export default async function PageRadio({ searchParams }: { searchParams: Promis
           <label className="text-xs text-slate-400 md:col-span-2">URL d'écoute publique (laisser vide = auto depuis serveur+mount)<input name="url_flux" defaultValue={e?.url_flux ?? ""} placeholder="https://stream.zeno.fm/2rhg5756d8zuv" className={`mt-1 ${CH}`} /></label>
           <div className="md:col-span-3"><button className={`rounded-lg px-5 py-2.5 font-bold text-white ${e ? "bg-amber-600 hover:bg-amber-500" : "bg-violet-600 hover:bg-violet-500"}`}>{e ? "Enregistrer les modifications" : "🎙 Créer le flux"}</button></div>
         </form>
-        <p className="mt-3 text-[11px] text-slate-500">💡 Config Icecast pour ton logiciel de diffusion (BUTT, RadioBOSS, OBS…) : Serveur + Port + Mount + Utilisateur + Mot de passe. L'URL d'écoute sert au lecteur ci-dessous.</p>
+        <p className="mt-3 text-[11px] text-slate-500">💡 <b>Icecast</b> : Serveur + Port + Mount (/source) + Utilisateur + Mot de passe → https. &nbsp;·&nbsp; <b>Shoutcast</b> : Serveur + Port (8000) + Stream ID + Mot de passe → http (l'URL d'écoute s'adapte au protocole). Colle ces infos dans ton logiciel de diffusion (BUTT, RadioBOSS, OBS…).</p>
       </Carte>
 
       {/* Flux existants avec lecteur audio */}
