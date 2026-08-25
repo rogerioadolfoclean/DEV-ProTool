@@ -102,11 +102,25 @@ const COULEURS_STATUT: Record<string, string> = {
   terminee: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
 };
 
+const LIBELLES_STATUT: Record<string, string> = {
+  livre: "Livré",
+  envoye: "Envoyé",
+  en_cours: "En cours",
+  en_attente: "En attente",
+  echoue: "Échoué",
+  rejete_dnd: "Rejeté (DND)",
+  simule: "Simulé",
+  termine: "Terminé",
+  sans_reponse: "Sans réponse",
+  boite_vocale: "Boîte vocale",
+};
+
 export function BadgeStatut({ statut }: { statut: string }) {
   const c = COULEURS_STATUT[statut] ?? "bg-slate-500/15 text-slate-300 border-slate-500/30";
+  const libelle = LIBELLES_STATUT[statut] ?? statut.replace(/_/g, " ");
   return (
     <span className={`inline-block text-xs px-2 py-0.5 rounded-full border ${c}`}>
-      {statut.replace(/_/g, " ")}
+      {libelle}
     </span>
   );
 }
