@@ -179,12 +179,20 @@ CREATE TABLE IF NOT EXISTS flux_streaming (
   tenant_id INT NOT NULL REFERENCES tenants(id),
   nom VARCHAR(120) NOT NULL,
   type VARCHAR(20) NOT NULL DEFAULT 'radio' CHECK (type IN ('radio','podcast','video')),
-  protocole VARCHAR(20) NOT NULL DEFAULT 'HLS' CHECK (protocole IN ('HLS','Icecast','RTMP')),
+  protocole VARCHAR(20) NOT NULL DEFAULT 'Icecast' CHECK (protocole IN ('HLS','Icecast','Shoutcast','RTMP')),
   url_flux TEXT,
   bitrate_kbps INT DEFAULT 128,
   auditeurs_actuels INT DEFAULT 0,
   auditeurs_pic INT DEFAULT 0,
   statut VARCHAR(20) DEFAULT 'en_ligne' CHECK (statut IN ('en_ligne','hors_ligne','maintenance')),
+  serveur VARCHAR(160),
+  port INT,
+  mount_point VARCHAR(160),
+  username VARCHAR(80),
+  mot_passe VARCHAR(120),
+  encodage VARCHAR(10) DEFAULT 'MP3',
+  derniere_verif TIMESTAMPTZ,
+  titre_en_cours VARCHAR(200),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

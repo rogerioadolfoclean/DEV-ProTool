@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
 import { audit, exigerEcriture } from "@/lib/auth";
+import { sonderFlux } from "@/lib/radio-probe";
 
 // Construit une URL d'ecoute par defaut selon le PROTOCOLE (Icecast / Shoutcast / HLS).
 function urlEcoute(fournie: string, serveur: string, port: string, mount: string, protocole: string): string {
@@ -78,5 +79,50 @@ export async function supprimerFlux(fd: FormData) {
   const id = Number(fd.get("id"));
   await pool.query(`DELETE FROM flux_streaming WHERE id=$1 AND tenant_id=$2`, [id, s.tenantId]);
   await audit("suppression_flux_radio", String(id), null);
+  revalidatePath("/console/radio-web");
+}
+
+// Sonde RÉELLE du serveur de diffusion → met à jour état en ligne + auditeurs réels.
+async function appliquerSonde(id: number, tenantId: number) {
+  const q = await pool.query(
+    `SELECT serveur,port,mount_point,protocole,url_flux,auditeurs_pic FROM flux_streaming WHERE id=$1 AND tenant_id=$2`,
+    [id, tenantId],
+  );
+  if (!q.rowCount) return;
+  const f = q.rows[0] as { serveur: string | null; port: number | null; mount_point: string | null; protocole: string; url_flux: string | null; auditeurs_pic: number };
+  const r = await sonderFlux(f);
+  const statut = r.online ? "en_ligne" : "hors_ligne";
+  const titre = r.titre?.trim() || null;
+  if (r.listeners !== null) {
+    // Chiffre réel obtenu : on l'écrit et on relève le pic si dépassé.
+    const pic = Math.max(f.auditeurs_pic ?? 0, r.listeners);
+    await pool.query(
+      `UPDATE flux_streaming SET statut=$1,auditeurs_actuels=$2,auditeurs_pic=$3,titre_en_cours=$4,derniere_verif=NOW() WHERE id=$5 AND tenant_id=$6`,
+      [statut, r.listeners, pic, titre, id, tenantId],
+    );
+  } else {
+    // Nombre d'auditeurs non exposé (Zeno/HLS) : on ne met à jour QUE l'état + le titre réel, jamais un chiffre inventé.
+    await pool.query(
+      `UPDATE flux_streaming SET statut=$1,titre_en_cours=$2,derniere_verif=NOW() WHERE id=$3 AND tenant_id=$4`,
+      [statut, titre, id, tenantId],
+    );
+  }
+  return r;
+}
+
+export async function rafraichirFlux(fd: FormData) {
+  const s = await exigerEcriture();
+  const id = Number(fd.get("id"));
+  if (!id) throw new Error("Flux invalide");
+  const r = await appliquerSonde(id, s.tenantId);
+  await audit("verification_flux_radio", String(id), r ? `${r.online ? "en ligne" : "hors ligne"}${r.listeners !== null ? ` · ${r.listeners} auditeurs` : ""} (${r.source})` : null);
+  revalidatePath("/console/radio-web");
+}
+
+export async function rafraichirTousFlux() {
+  const s = await exigerEcriture();
+  const q = await pool.query(`SELECT id FROM flux_streaming WHERE tenant_id=$1`, [s.tenantId]);
+  await Promise.all(q.rows.map((row: { id: number }) => appliquerSonde(row.id, s.tenantId)));
+  await audit("verification_flux_radio", "*", `${q.rowCount} flux sondés`);
   revalidatePath("/console/radio-web");
 }

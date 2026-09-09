@@ -2,7 +2,7 @@ import Link from "next/link";
 import { pool } from "@/lib/db";
 import { exigerSession } from "@/lib/auth";
 import { Carte, CarteStat, EnTetePage, BadgeStatut } from "@/components/ui";
-import { creerFlux, modifierFlux, supprimerFlux } from "./actions";
+import { creerFlux, modifierFlux, supprimerFlux, rafraichirFlux, rafraichirTousFlux } from "./actions";
 import GenerateurMotPasse from "@/components/generateur-mot-passe";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const ICONES: Record<string, string> = { radio: "📻", podcast: "🎙", video: "🎬" };
 const CH = "rounded-lg bg-[#050b18] border border-[#1c2a4a] px-3 py-2 text-white text-sm w-full";
 
-type Flux = { id: number; tenant: string; nom: string; type: string; protocole: string; url_flux: string; bitrate_kbps: number; auditeurs_actuels: number; auditeurs_pic: number; statut: string; serveur: string | null; port: number | null; mount_point: string | null; username: string | null; mot_passe: string | null; encodage: string | null };
+type Flux = { id: number; tenant: string; nom: string; type: string; protocole: string; url_flux: string; bitrate_kbps: number; auditeurs_actuels: number; auditeurs_pic: number; statut: string; serveur: string | null; port: number | null; mount_point: string | null; username: string | null; mot_passe: string | null; encodage: string | null; derniere_verif: string | null; titre_en_cours: string | null };
 
 export default async function PageRadio({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
   const s = await exigerSession();
@@ -25,12 +25,21 @@ export default async function PageRadio({ searchParams }: { searchParams: Promis
     <div>
       <EnTetePage rf="RF-010" titre="Radio Web & Podcast" sousTitre="Créez et diffusez vos flux audio HLS / Icecast (radio, podcast, vidéo) — RF-010" couleur="violet" />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <CarteStat libelle="Flux configurés" valeur={rows.length} couleur="violet" />
         <CarteStat libelle="En ligne" valeur={enLigne.length} couleur="emerald" />
         <CarteStat libelle="Auditeurs en direct" valeur={auditeurs} couleur="sky" />
         <CarteStat libelle="Pic d'audience" valeur={Math.max(0, ...rows.map((f) => f.auditeurs_pic))} couleur="amber" />
       </div>
+
+      {rows.length > 0 && (
+        <div className="mb-6 flex items-center gap-3">
+          <form action={rafraichirTousFlux}>
+            <button className="rounded-lg bg-sky-600 hover:bg-sky-500 px-4 py-2 text-sm font-semibold text-white">🔄 Vérifier tous les flux en direct</button>
+          </form>
+          <span className="text-[11px] text-slate-500">Interroge chaque serveur (Icecast/Shoutcast) pour l&apos;état réel et le nombre d&apos;auditeurs.</span>
+        </div>
+      )}
 
       {/* Formulaire creer / modifier un flux */}
       <Carte>
@@ -72,6 +81,14 @@ export default async function PageRadio({ searchParams }: { searchParams: Promis
               <div className="border border-[#1c2a4a] rounded-md py-1.5 bg-[#0a1120]"><div className="text-[10px] uppercase text-slate-500">Protocole</div><div className="text-xs font-mono text-violet-300">{f.protocole}</div></div>
             </div>
 
+            {/* En cours de diffusion (métadonnée réelle du flux) */}
+            {f.titre_en_cours && (
+              <div className="mt-3 flex items-center gap-2 text-xs bg-[#0a1120] border border-emerald-500/30 rounded-md px-3 py-1.5">
+                <span className="text-emerald-400">♪ En direct</span>
+                <span className="text-slate-200 truncate">{f.titre_en_cours}</span>
+              </div>
+            )}
+
             {/* Lecteur audio */}
             {f.url_flux && <audio controls preload="none" src={f.url_flux} className="mt-3 w-full h-9" />}
             <div className="mt-2 text-[11px] font-mono text-sky-300 bg-[#0a1120] border border-[#1c2a4a] rounded-md px-3 py-2 truncate">▶ {f.url_flux || "(pas d'URL d'écoute)"}</div>
@@ -90,9 +107,11 @@ export default async function PageRadio({ searchParams }: { searchParams: Promis
               </details>
             )}
 
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex items-center gap-2">
+              <form action={rafraichirFlux}><input type="hidden" name="id" value={f.id} /><button className="rounded bg-sky-700 hover:bg-sky-600 px-3 py-1.5 text-xs text-white">🔄 Vérifier</button></form>
               <Link href={`/console/radio-web?edit=${f.id}`} className="rounded bg-amber-600/80 hover:bg-amber-500 px-3 py-1.5 text-xs text-white">✏️ Modifier</Link>
               <form action={supprimerFlux}><input type="hidden" name="id" value={f.id} /><button className="rounded bg-rose-700 hover:bg-rose-600 px-3 py-1.5 text-xs text-white">Supprimer</button></form>
+              {f.derniere_verif && <span className="ml-auto text-[10px] text-slate-500">Vérifié : {new Date(f.derniere_verif).toLocaleString("fr-FR")}</span>}
             </div>
           </Carte>
         ))}
