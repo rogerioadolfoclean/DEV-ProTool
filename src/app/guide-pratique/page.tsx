@@ -263,6 +263,7 @@ export default function GuidePratique() {
         .gp .bar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 22px;}
         .gp .bar button,.gp .bar a{font-size:15px;border:1px solid #b9b199;background:#efe9d6;
             color:#1a1a1a;border-radius:6px;padding:7px 12px;cursor:pointer;text-decoration:none;}
+        .gp .bar a.dl{background:#1b7a3d;border-color:#136030;color:#fff;font-weight:bold;}
         .gp .intro{background:#eef4ee;border:1px solid #cfe0cf;border-radius:8px;padding:14px 16px;margin-bottom:24px;font-size:16px;}
         .gp .legend{font-size:14px;color:#444;margin:10px 0 0;}
         .gp .badge{display:inline-block;color:#fff;font-size:12px;font-weight:bold;
@@ -287,7 +288,8 @@ export default function GuidePratique() {
         <p className="sub">Guide pas à pas, avec des exemples réels de la vie de tous les jours.</p>
 
         <div className="bar">
-          <button onClick={() => window.print()}>🖨 Imprimer / Enregistrer en PDF</button>
+          <a href="/Guide-Pratique-OmniComm-360.pdf" download className="dl">⬇ Télécharger le PDF</a>
+          <button onClick={() => window.print()}>🖨 Imprimer</button>
           <Link href="/console">← Tableau de bord</Link>
           <Link href="/manuel">Manuel de référence</Link>
         </div>
