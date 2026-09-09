@@ -6,6 +6,7 @@ import { pool } from "./db";
 import { exigerEcriture, exigerAdmin, audit } from "./auth";
 import { envoyerViaPasserelle, appelerViaPasserelle } from "./gateway";
 import { envoyerEmail } from "./email-gateway";
+import { diagnostiquerSim as diagnostiquerSim2, resumeDiagnostic } from "./sim-diagnostic";
 
 /** Routage Least-Cost (RF-001) : choisit l'opérateur le moins cher pour le préfixe. */
 async function routerLeastCost(canal: string, vers: string) {
@@ -110,9 +111,14 @@ export async function changerStatutSim(formData: FormData) {
   await audit("sim_statut", String(id), statut); revalidatePath("/console/sims");
 }
 export async function diagnostiquerSim(formData: FormData) {
-  await exigerEcriture(); const id = Number(formData.get("id")); const signal = -70 - Math.floor(Math.random() * 35); const latence = 80 + Math.floor(Math.random() * 400);
-  await pool.query(`INSERT INTO sim_evenements (sim_id, type, details) VALUES ($1,'diagnostic',$2)`, [id, `Diagnostic : signal ${signal} dBm, latence ${latence} ms, ${signal > -95 ? "état OK" : "signal faible"}`]);
-  await audit("sim_diagnostic", String(id), null); revalidatePath("/console/sims");
+  const s = await exigerEcriture();
+  const id = Number(formData.get("id"));
+  const r = await pool.query(`SELECT id, statut, secteur, data_mois_mo, derniere_activite, apn FROM sims WHERE id = $1 AND tenant_id = $2`, [id, s.tenantId]);
+  if (!r.rows[0]) return;
+  const d = diagnostiquerSim2(r.rows[0]);
+  await pool.query(`INSERT INTO sim_evenements (sim_id, type, details) VALUES ($1,'diagnostic',$2)`, [id, resumeDiagnostic(d)]);
+  await audit("sim_diagnostic", String(id), d.resume);
+  revalidatePath("/console/sims");
 }
 
 /** Attribution d'un numéro virtuel (RF-015). */

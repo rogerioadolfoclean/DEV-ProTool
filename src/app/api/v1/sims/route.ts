@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { routeApi, erreurJson, type ContexteApi } from "@/lib/api-auth";
+import { diagnostiquerSim, resumeDiagnostic } from "@/lib/sim-diagnostic";
 
 export const dynamic = "force-dynamic";
 
@@ -27,15 +28,13 @@ export const PATCH = routeApi(async (req: NextRequest, ctx: ContexteApi) => {
   const { id, action } = corps;
   if (!id || !action) return erreurJson(422, "parametres_manquants", "Les champs 'id' et 'action' sont obligatoires.");
 
-  const sim = await pool.query(`SELECT id, statut FROM sims WHERE id = $1 AND tenant_id = $2`, [id, ctx.tenantId]);
+  const sim = await pool.query(`SELECT id, statut, secteur, data_mois_mo, derniere_activite, apn FROM sims WHERE id = $1 AND tenant_id = $2`, [id, ctx.tenantId]);
   if (!sim.rows[0]) return erreurJson(404, "sim_introuvable", `Aucune SIM #${id} pour ce tenant.`);
 
   if (action === "diagnostiquer") {
-    const signal = -70 - Math.floor(Math.random() * 35);
-    const latence = 80 + Math.floor(Math.random() * 400);
-    const details = `Diagnostic : signal ${signal} dBm, latence ${latence} ms, ${signal > -95 ? "état OK" : "signal faible"}`;
-    await pool.query(`INSERT INTO sim_evenements (sim_id, type, details) VALUES ($1,'diagnostic',$2)`, [id, details]);
-    return NextResponse.json({ donnees: { id, diagnostic: { signal_dbm: signal, latence_ms: latence, etat: signal > -95 ? "ok" : "signal_faible" } } });
+    const d = diagnostiquerSim(sim.rows[0]);
+    await pool.query(`INSERT INTO sim_evenements (sim_id, type, details) VALUES ($1,'diagnostic',$2)`, [id, resumeDiagnostic(d)]);
+    return NextResponse.json({ donnees: { id, diagnostic: d } });
   }
   const statut = action === "activer" ? "active" : action === "suspendre" ? "suspendue" : null;
   if (!statut) return erreurJson(422, "action_invalide", "Actions : activer, suspendre, diagnostiquer.");
