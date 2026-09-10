@@ -22,9 +22,10 @@ export function etatPasserelle(): EtatPasserelle {
   const numero = process.env.TWILIO_PHONE_NUMBER ?? null;
   const twilio = sid && token && Boolean(numero);
   const metaWhatsapp = Boolean(process.env.META_WHATSAPP_ACCESS_TOKEN && process.env.META_WHATSAPP_PHONE_NUMBER_ID);
-  // WhatsApp via Twilio n'est RÉEL que si un expéditeur WhatsApp dédié est configuré
-  // (le numéro SMS/voix ordinaire n'est PAS un canal WhatsApp → erreur Twilio 63007).
-  const twilioWhatsapp = sid && token && Boolean(process.env.TWILIO_WHATSAPP_FROM);
+  // WhatsApp via Twilio n'est RÉEL que si un expéditeur WhatsApp DÉDIÉ et valide est configuré
+  // (le numéro SMS/voix ordinaire n'est PAS un canal WhatsApp → erreur Twilio 63007 garantie).
+  // twilioWhatsAppFrom() renvoie null si TWILIO_WHATSAPP_FROM est absent ou vaut le numéro SMS.
+  const twilioWhatsapp = sid && token && Boolean(twilioWhatsAppFrom());
   const whatsappReel = metaWhatsapp || twilioWhatsapp;
   return {
     configuree: twilio || whatsappReel,
@@ -66,7 +67,13 @@ export function numeroValide(v: string): boolean {
 function twilioWhatsAppFrom(): string | null {
   const f = process.env.TWILIO_WHATSAPP_FROM?.trim();
   if (!f) return null;
-  return f.startsWith("whatsapp:") ? f : `whatsapp:${f.replace(/\s+/g, "")}`;
+  const numero = numeroE164(f);
+  // Garde-fou : si TWILIO_WHATSAPP_FROM vaut (par erreur de config) le numéro SMS/voix
+  // TWILIO_PHONE_NUMBER, ce n'est PAS un canal WhatsApp → Twilio renverrait 63007. On
+  // considère alors WhatsApp comme NON configuré plutôt que de tenter un envoi voué à l'échec.
+  const numeroSms = process.env.TWILIO_PHONE_NUMBER;
+  if (numeroSms && numero === numeroE164(numeroSms)) return null;
+  return f.startsWith("whatsapp:") ? f : `whatsapp:${numero}`;
 }
 
 function identifiantsMeta() {
