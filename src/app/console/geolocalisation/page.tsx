@@ -1,12 +1,12 @@
 import { pool } from "@/lib/db";
 import { Carte, CarteStat, EnTetePage, Tableau } from "@/components/ui";
-import { geolocationConfiguree } from "@/lib/geolocation";
+import { baseAntennesInfo } from "@/lib/geolocation";
 
 export const dynamic = "force-dynamic";
 
 export default async function PageGeoloc() {
-  const configure = geolocationConfiguree();
-  const [points, stats] = await Promise.all([
+  const [base, points, stats] = await Promise.all([
+    baseAntennesInfo(),
     pool.query(`SELECT g.*, s.etiquette, s.msisdn, s.secteur FROM geolocalisations g
       JOIN sims s ON s.id = g.sim_id ORDER BY g.created_at DESC LIMIT 25`),
     pool.query(`SELECT COUNT(*) AS n, COUNT(DISTINCT sim_id) AS sims,
@@ -15,62 +15,65 @@ export default async function PageGeoloc() {
   ]);
   const s = stats.rows[0];
   const reelles = Number(s.reelles);
+  const basePrete = base.total > 0;
 
   return (
     <div>
       <EnTetePage
         rf="RF-013"
         titre="Géolocalisation (Triangulation)"
-        sousTitre="Localisation des équipements via les antennes GSM/LTE (Cell-ID) — sans GPS (RF-013)"
+        sousTitre="Localisation des équipements via les antennes GSM/LTE (Cell-ID) — NOTRE API, sans GPS (RF-013)"
         couleur="emerald"
       />
 
-      {/* Bannière d'état HONNÊTE : réel si un fournisseur d'antennes est connecté. */}
+      {/* Bannière d'état HONNÊTE : dépend de NOTRE base d'antennes (aucun tiers). */}
       <div
         className={`mb-5 rounded-lg border px-4 py-3 text-sm ${
-          configure
+          basePrete
             ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
             : "border-amber-500/40 bg-amber-500/10 text-amber-200"
         }`}
       >
-        {configure ? (
+        {basePrete ? (
           <>
-            <span className="font-bold">● Géolocalisation cellulaire ACTIVE.</span> Les positions sont calculées en temps
-            réel à partir des antennes qui voient l&apos;équipement (base d&apos;antennes réelle). Envoyez les cellules via
-            <span className="font-mono"> POST /api/v1/geolocation</span>.
+            <span className="font-bold">● NOTRE API de géolocalisation est ACTIVE.</span>{" "}
+            <b>{base.total.toLocaleString("fr-FR")}</b> antennes réelles hébergées dans notre base — positions calculées par
+            NOTRE moteur de triangulation, sans fournisseur tiers ni coût par appel. Endpoint payant :{" "}
+            <span className="font-mono">POST /api/v1/geolocation</span>.
           </>
         ) : (
           <>
-            <span className="font-bold">⚠️ Mode démonstration.</span> Aucun fournisseur de localisation cellulaire
-            n&apos;est connecté (variable <span className="font-mono">UNWIREDLABS_API_KEY</span> absente). Les positions
-            ci-dessous sont des <b>exemples</b> — aucune n&apos;est réelle tant que la clé n&apos;est pas posée. Le système
-            ne fabrique jamais de position réelle sans fournisseur.
+            <span className="font-bold">⚠️ Base d&apos;antennes vide.</span> NOTRE moteur est prêt, mais aucune antenne
+            n&apos;est encore chargée. Lancez l&apos;import unique des données ouvertes OpenCelliD :{" "}
+            <span className="font-mono">node scripts/migration-cell-towers.js</span> puis{" "}
+            <span className="font-mono">node scripts/import-cell-towers.js &lt;fichier.csv&gt; 630,631,724</span>. Tant que
+            la base est vide, aucune position réelle n&apos;est inventée ; les points ci-dessous sont des exemples de démo.
           </>
         )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <CarteStat libelle="Positions relevées" valeur={s.n} couleur="emerald" />
+        <CarteStat libelle="Antennes en base (à nous)" valeur={base.total.toLocaleString("fr-FR")} detail={basePrete ? "OpenCelliD hébergé" : "à importer"} couleur={basePrete ? "emerald" : "amber"} />
+        <CarteStat libelle="Positions relevées" valeur={s.n} couleur="sky" />
         <CarteStat libelle="Dont réelles (Cell-ID)" valeur={reelles} detail={reelles === 0 ? "aucune pour l'instant" : "résolues par antenne"} couleur={reelles > 0 ? "emerald" : "slate"} />
-        <CarteStat libelle="Équipements localisés" valeur={s.sims} couleur="sky" />
         <CarteStat libelle="Précision moyenne" valeur={`${s.prec} m`} detail="selon les cellules vues" couleur="amber" />
       </div>
 
       <Carte className="mb-6">
-        <h2 className="font-bold text-white mb-2">Comment ça marche (Cell-ID / triangulation)</h2>
+        <h2 className="font-bold text-white mb-2">NOTRE géolocalisation Cell-ID (sans fournisseur tiers)</h2>
         <p className="text-sm text-slate-400">
-          Un équipement IoT ne connaît pas sa position, mais il connaît les <b>antennes qui le voient</b> (identifiants
-          MCC/MNC/LAC/CID et puissance du signal). La plateforme envoie ces cellules à une <b>base d&apos;antennes réelle</b>
-          qui renvoie les coordonnées ; avec plusieurs cellules, la position est affinée par <b>triangulation</b>. Idéal pour
-          les capteurs AgriTech et les engins miniers sans module GPS.
+          Un équipement IoT ne connaît pas sa position, mais il connaît les <b>antennes qui le voient</b> (MCC/MNC/LAC/CID +
+          puissance du signal). La plateforme résout chaque antenne dans <b>notre propre base d&apos;antennes</b> (données
+          ouvertes OpenCelliD, hébergées chez nous) et calcule la position par <b>barycentre pondéré</b> — plusieurs
+          antennes = triangulation. Aucun appel à un service externe, aucun coût par requête : c&apos;est <b>notre API que
+          nous vendons</b>.
         </p>
         <p className="text-xs text-slate-500 mt-3">
-          <b>Pour envoyer une position réelle :</b>{" "}
-          <span className="font-mono text-slate-300">
-            POST /api/v1/geolocation
-          </span>{" "}
+          <b>Pour localiser un équipement :</b>{" "}
+          <span className="font-mono text-slate-300">POST /api/v1/geolocation</span>{" "}
           avec <span className="font-mono text-slate-300">{`{ sim_id, mcc, mnc, cells:[{lac, cid, signal}] }`}</span>{" "}
-          (en-tête <span className="font-mono">Authorization: Bearer &lt;clé&gt;</span>).
+          (en-tête <span className="font-mono">Authorization: Bearer &lt;clé&gt;</span>). Facturé à l&apos;usage selon le
+          plan du client (clé API + logs = compteur).
         </p>
       </Carte>
 
