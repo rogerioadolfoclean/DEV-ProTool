@@ -8,11 +8,15 @@ import { etatPasserelle } from "@/lib/gateway";
 export function BandeauPasserelle() {
   const etat = etatPasserelle();
   if (etat.configuree) {
+    const LABELS: Record<string, string> = { sms: "SMS", voix: "appels", whatsapp: "WhatsApp" };
+    const reels = etat.canauxReels.map((c) => LABELS[c] ?? c).join(", ") || "aucun canal";
+    const whatsappDemo = !etat.canauxReels.includes("whatsapp");
     return (
       <div className="mb-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 flex items-center gap-3 flex-wrap">
         <span className="text-emerald-300 font-bold text-sm">● PASSERELLE ACTIVE</span>
         <span className="text-xs text-emerald-200/80">
-          Les SMS, WhatsApp et appels partent réellement via Twilio ({etat.numeroAffiche}).
+          Canaux réels : <strong>{reels}</strong> via Twilio ({etat.numeroAffiche}).
+          {whatsappDemo && <span className="text-amber-300/90"> WhatsApp en démo (configurer Meta Cloud API ou TWILIO_WHATSAPP_FROM).</span>}
         </span>
         <Link href="/console/passerelle" className="ml-auto text-xs text-emerald-300 hover:underline">
           Diagnostic →

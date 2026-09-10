@@ -22,15 +22,19 @@ export function etatPasserelle(): EtatPasserelle {
   const numero = process.env.TWILIO_PHONE_NUMBER ?? null;
   const twilio = sid && token && Boolean(numero);
   const metaWhatsapp = Boolean(process.env.META_WHATSAPP_ACCESS_TOKEN && process.env.META_WHATSAPP_PHONE_NUMBER_ID);
+  // WhatsApp via Twilio n'est RÉEL que si un expéditeur WhatsApp dédié est configuré
+  // (le numéro SMS/voix ordinaire n'est PAS un canal WhatsApp → erreur Twilio 63007).
+  const twilioWhatsapp = sid && token && Boolean(process.env.TWILIO_WHATSAPP_FROM);
+  const whatsappReel = metaWhatsapp || twilioWhatsapp;
   return {
-    configuree: twilio || metaWhatsapp,
+    configuree: twilio || whatsappReel,
     sid,
     token,
     numero: Boolean(numero),
     numeroAffiche: numero,
     canauxReels: [
       ...(twilio ? ["sms", "voix"] : []),
-      ...(metaWhatsapp ? ["whatsapp"] : []),
+      ...(whatsappReel ? ["whatsapp"] : []),
     ],
   };
 }
@@ -45,6 +49,24 @@ function identifiantsTwilio() {
   const numero = process.env.TWILIO_PHONE_NUMBER;
   if (!sid || !token || !numero) return null;
   return { sid, numero, auth: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64") };
+}
+
+/** Normalise un numéro au format E.164 (retire whatsapp:, espaces, tirets, parenthèses). */
+export function numeroE164(v: string): string {
+  return v.replace(/^whatsapp:/i, "").replace(/[\s()\-.]/g, "").trim();
+}
+
+/** Valide un numéro international E.164 : + puis 8 à 15 chiffres, ne commençant pas par 0. */
+export function numeroValide(v: string): boolean {
+  return /^\+[1-9]\d{7,14}$/.test(numeroE164(v));
+}
+
+/** Expéditeur WhatsApp Twilio (numéro approuvé ou sandbox « whatsapp:+14155238886 »).
+ *  Le numéro SMS/voix ordinaire n'est PAS un canal WhatsApp valide. */
+function twilioWhatsAppFrom(): string | null {
+  const f = process.env.TWILIO_WHATSAPP_FROM?.trim();
+  if (!f) return null;
+  return f.startsWith("whatsapp:") ? f : `whatsapp:${f.replace(/\s+/g, "")}`;
 }
 
 function identifiantsMeta() {
@@ -121,17 +143,44 @@ async function envoyerWhatsAppMeta(vers: string, contenu: string): Promise<Resul
 export async function envoyerViaPasserelle(canal: string, vers: string, contenu: string): Promise<ResultatPasserelle> {
   if (!CANAUX_SMS.includes(canal)) return { mode: "demo", raison: `Canal ${canal} sans passerelle réelle configurée` };
 
+  // Validation locale AVANT tout appel réseau : évite les échecs Twilio garantis
+  // (21211 numéro invalide, 21614 non mobile) sur des numéros mal formés.
+  const dest = numeroE164(vers);
+  if (!numeroValide(dest)) {
+    return { mode: "reel", statut: "echoue", fournisseurId: null, erreur: `Numéro destinataire invalide : « ${vers} » — format international requis (ex. +243811234567).` };
+  }
+
+  // WhatsApp : Meta Cloud API en priorité, sinon expéditeur WhatsApp Twilio dédié.
   if (canal === "whatsapp") {
     const meta = identifiantsMeta();
     if (meta) return envoyerWhatsAppMeta(vers, contenu);
+
+    const waFrom = twilioWhatsAppFrom();
+    const idTw = identifiantsTwilio();
+    if (!waFrom || !idTw) {
+      // Aucun canal WhatsApp réel : on NE tente PAS un envoi Twilio voué à l'échec (63007).
+      return { mode: "demo", raison: "Aucun expéditeur WhatsApp réel configuré (Meta Cloud API ou TWILIO_WHATSAPP_FROM) — message non envoyé physiquement" };
+    }
+    const corpsWa = new URLSearchParams({
+      To: `whatsapp:${vers.replace(/^whatsapp:/i, "").replace(/\s+/g, "")}`,
+      From: waFrom,
+      Body: contenu,
+      StatusCallback: urlWebhookStatut(),
+      StatusCallbackEvent: "queued,sent,delivered,undelivered,failed",
+    });
+    return appelerTwilio(`${idTw.sid}/Messages.json`, corpsWa, idTw.auth);
   }
 
+  // SMS réel via Twilio.
   const id = identifiantsTwilio();
-  if (!id) return { mode: "demo", raison: canal === "whatsapp" ? "Aucune passerelle WhatsApp réelle configurée" : "Identifiants TWILIO_* absents — aucun envoi physique" };
+  if (!id) return { mode: "demo", raison: "Identifiants TWILIO_* absents — aucun envoi physique" };
+  if (dest === numeroE164(id.numero)) {
+    return { mode: "reel", statut: "echoue", fournisseurId: null, erreur: "Le destinataire ne peut pas être le numéro émetteur." };
+  }
 
   const corps = new URLSearchParams({
-    To: canal === "whatsapp" ? `whatsapp:${vers}` : vers,
-    From: canal === "whatsapp" ? `whatsapp:${id.numero}` : id.numero,
+    To: dest,
+    From: id.numero,
     Body: contenu,
     StatusCallback: urlWebhookStatut(),
     StatusCallbackEvent: "queued,sent,delivered,undelivered,failed",
@@ -143,7 +192,10 @@ export async function envoyerViaPasserelle(canal: string, vers: string, contenu:
 export async function appelerViaPasserelle(vers: string, message: string): Promise<ResultatPasserelle> {
   const id = identifiantsTwilio();
   if (!id) return { mode: "demo", raison: "Identifiants TWILIO_* absents — aucun appel physique" };
+  const dest = numeroE164(vers);
+  if (!numeroValide(dest)) return { mode: "reel", statut: "echoue", fournisseurId: null, erreur: `Numéro invalide : « ${vers} » — format international requis (ex. +243811234567).` };
+  if (dest === numeroE164(id.numero)) return { mode: "reel", statut: "echoue", fournisseurId: null, erreur: "Le destinataire ne peut pas être le numéro émetteur." };
   const twiml = `<Response><Say language="fr-FR">${message.replace(/[<>&]/g, "")}</Say></Response>`;
-  const corps = new URLSearchParams({ To: vers, From: id.numero, Twiml: twiml, StatusCallback: urlWebhookStatut(), StatusCallbackEvent: "completed" });
+  const corps = new URLSearchParams({ To: dest, From: id.numero, Twiml: twiml, StatusCallback: urlWebhookStatut(), StatusCallbackEvent: "completed" });
   return appelerTwilio(`${id.sid}/Calls.json`, corps, id.auth);
 }
